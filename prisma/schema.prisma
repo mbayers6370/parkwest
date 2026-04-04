@@ -1,0 +1,463 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  LEAVE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  OTHER
+}
+
+enum AliasType {
+  SCHEDULE
+  NICKNAME
+  LEGACY
+  MANUAL
+  IMPORTED
+}
+
+enum WorkspaceKey {
+  PERSONAL
+  ON_THE_FLOOR
+  MANAGER_ADMIN
+}
+
+enum ScheduleImportStatus {
+  UPLOADED
+  PROCESSING
+  NEEDS_REVIEW
+  READY
+  PUBLISHED
+  FAILED
+}
+
+enum ScheduleImportMatchStatus {
+  MATCHED
+  UNMATCHED
+  AMBIGUOUS
+  IGNORED
+}
+
+enum ScheduleWeekStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ShiftAssignmentStatus {
+  SCHEDULED
+  OFF
+  PTO
+  RO
+  PSL
+  OPEN
+  CANCELED
+}
+
+enum ShiftSourceType {
+  IMPORT
+  MANUAL
+  OVERRIDE
+  BID_AWARD
+  SWAP
+}
+
+enum AttendanceEventStatus {
+  PRESENT
+  LATE
+  ABSENT
+  CALLED_OUT
+  EARLY_OFF
+  REASSIGNED
+}
+
+enum LeaveRequestType {
+  PTO
+  RO
+  PSL
+  UNPAID
+  OTHER
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELED
+}
+
+enum LeaveDecision {
+  APPROVED
+  DENIED
+}
+
+enum OpenShiftStatus {
+  OPEN
+  AWARDED
+  EXPIRED
+  CANCELED
+}
+
+enum OpenShiftBidEligibilityStatus {
+  ELIGIBLE
+  INELIGIBLE
+  PENDING_REVIEW
+}
+
+model Employee {
+  id                            String                         @id @default(cuid())
+  employeeId                    String                         @unique
+  badgeId                       String?
+  firstName                     String
+  lastName                      String
+  preferredName                 String?
+  displayName                   String
+  status                        EmployeeStatus                 @default(ACTIVE)
+  employmentType                EmploymentType                 @default(OTHER)
+  seniorityDate                 DateTime?
+  hireDate                      DateTime?
+  terminationDate               DateTime?
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  aliases                       EmployeeAlias[]
+  account                       UserAccount?
+  roleAssignments               EmployeeRoleAssignment[]
+  departmentAssignments         EmployeeDepartmentAssignment[]
+  workspaceAccess               WorkspaceAccess[]
+  uploadedScheduleImports       ScheduleImportBatch[]          @relation("UploadedScheduleImports")
+  createdScheduleWeeks          ScheduleWeek[]                 @relation("CreatedScheduleWeeks")
+  publishedScheduleWeeks        ScheduleWeek[]                 @relation("PublishedScheduleWeeks")
+  matchedScheduleImportRows     ScheduleImportRow[]
+  shiftAssignments              ShiftAssignment[]
+  attendanceEvents              AttendanceEvent[]             @relation("AttendanceEmployees")
+  recordedAttendanceEvents      AttendanceEvent[]             @relation("AttendanceRecordedBy")
+  pointEntries                  PointEntry[]                  @relation("PointEmployees")
+  enteredPointEntries           PointEntry[]                  @relation("PointEnteredBy")
+  pslEntries                    PslEntry[]                    @relation("PslEmployees")
+  enteredPslEntries             PslEntry[]                    @relation("PslEnteredBy")
+  leaveRequests                 LeaveRequest[]
+  leaveRequestDecisions         LeaveRequestDecision[]        @relation("LeaveDecisionBy")
+  grantedWorkspaceAccess        WorkspaceAccess[]             @relation("WorkspaceGrantedBy")
+  auditLogs                     AuditLog[]                    @relation("AuditActors")
+  createdOpenShifts             OpenShift[]                   @relation("OpenShiftCreatedBy")
+  openShiftBids                 OpenShiftBid[]
+}
+
+model EmployeeAlias {
+  id                  String     @id @default(cuid())
+  employeeIdFk        String
+  aliasName           String
+  normalizedAliasName String
+  aliasType           AliasType
+  isPrimary           Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  employee            Employee   @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+
+  @@unique([employeeIdFk, aliasName])
+  @@index([normalizedAliasName])
+}
+
+model UserAccount {
+  id                    String    @id @default(cuid())
+  employeeIdFk          String    @unique
+  username              String    @unique
+  passwordHash          String
+  passwordResetRequired Boolean   @default(true)
+  lastLoginAt           DateTime?
+  failedLoginCount      Int       @default(0)
+  lockedUntil           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  employee              Employee  @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+}
+
+model Role {
+  id                String                   @id @default(cuid())
+  roleKey           String                   @unique
+  roleName          String
+  description       String?
+  createdAt         DateTime                 @default(now())
+  employeeAssignments EmployeeRoleAssignment[]
+}
+
+model Department {
+  id                  String                        @id @default(cuid())
+  departmentKey       String                        @unique
+  departmentName      String
+  active              Boolean                       @default(true)
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  employeeAssignments EmployeeDepartmentAssignment[]
+  shiftAssignments    ShiftAssignment[]
+  attendanceEvents    AttendanceEvent[]
+  openShifts          OpenShift[]
+}
+
+model EmployeeRoleAssignment {
+  id           String    @id @default(cuid())
+  employeeIdFk String
+  roleIdFk     String
+  startsAt     DateTime?
+  endsAt       DateTime?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  employee     Employee  @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  role         Role      @relation(fields: [roleIdFk], references: [id], onDelete: Cascade)
+
+  @@index([employeeIdFk, active])
+}
+
+model EmployeeDepartmentAssignment {
+  id             String      @id @default(cuid())
+  employeeIdFk   String
+  departmentIdFk String
+  isPrimary      Boolean     @default(false)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  employee       Employee    @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  department     Department  @relation(fields: [departmentIdFk], references: [id], onDelete: Cascade)
+
+  @@index([employeeIdFk, active])
+}
+
+model WorkspaceAccess {
+  id                    String       @id @default(cuid())
+  employeeIdFk          String
+  workspaceKey          WorkspaceKey
+  grantedByEmployeeIdFk String?
+  createdAt             DateTime     @default(now())
+  revokedAt             DateTime?
+  employee              Employee     @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  grantedBy             Employee?    @relation("WorkspaceGrantedBy", fields: [grantedByEmployeeIdFk], references: [id])
+
+  @@index([employeeIdFk, workspaceKey])
+}
+
+model ScheduleImportBatch {
+  id                     String                 @id @default(cuid())
+  uploadedByEmployeeIdFk String?
+  originalFilename     String
+  fileType             String
+  importStatus         ScheduleImportStatus
+  weekStart            DateTime
+  weekEnd              DateTime
+  totalRows            Int                    @default(0)
+  matchedRows          Int                    @default(0)
+  unmatchedRows        Int                    @default(0)
+  ambiguousRows        Int                    @default(0)
+  importedAt           DateTime               @default(now())
+  completedAt          DateTime?
+  uploadedBy             Employee?              @relation("UploadedScheduleImports", fields: [uploadedByEmployeeIdFk], references: [id])
+  rows                 ScheduleImportRow[]
+  scheduleWeeks        ScheduleWeek[]
+}
+
+model ScheduleImportRow {
+  id                          String                     @id @default(cuid())
+  scheduleImportBatchIdFk     String
+  sourceRowNumber             Int
+  sourceEmployeeName          String
+  normalizedSourceEmployeeName String
+  matchedEmployeeIdFk         String?
+  matchStatus                 ScheduleImportMatchStatus
+  rawPayloadJson              Json
+  createdAt                   DateTime                   @default(now())
+  scheduleImportBatch         ScheduleImportBatch        @relation(fields: [scheduleImportBatchIdFk], references: [id], onDelete: Cascade)
+  matchedEmployee             Employee?                  @relation(fields: [matchedEmployeeIdFk], references: [id])
+  shiftAssignments            ShiftAssignment[]
+
+  @@index([scheduleImportBatchIdFk, matchStatus])
+}
+
+model ScheduleWeek {
+  id                     String               @id @default(cuid())
+  weekStart              DateTime
+  weekEnd                DateTime
+  status                 ScheduleWeekStatus   @default(DRAFT)
+  sourceImportBatchIdFk  String?
+  createdByEmployeeIdFk  String
+  publishedByEmployeeIdFk String?
+  createdAt              DateTime             @default(now())
+  publishedAt            DateTime?
+  sourceImportBatch      ScheduleImportBatch? @relation(fields: [sourceImportBatchIdFk], references: [id])
+  createdBy              Employee             @relation("CreatedScheduleWeeks", fields: [createdByEmployeeIdFk], references: [id])
+  publishedBy            Employee?            @relation("PublishedScheduleWeeks", fields: [publishedByEmployeeIdFk], references: [id])
+  shiftAssignments       ShiftAssignment[]
+
+  @@unique([weekStart])
+}
+
+model ShiftAssignment {
+  id                  String                @id @default(cuid())
+  scheduleWeekIdFk    String
+  employeeIdFk        String
+  departmentIdFk      String
+  shiftDate           DateTime
+  startTime           String?
+  endTime             String?
+  shiftCode           String?
+  assignmentStatus    ShiftAssignmentStatus @default(SCHEDULED)
+  sourceType          ShiftSourceType       @default(IMPORT)
+  sourceImportRowIdFk String?
+  notes               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  scheduleWeek        ScheduleWeek          @relation(fields: [scheduleWeekIdFk], references: [id], onDelete: Cascade)
+  employee            Employee              @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  department          Department            @relation(fields: [departmentIdFk], references: [id], onDelete: Restrict)
+  sourceImportRow     ScheduleImportRow?    @relation(fields: [sourceImportRowIdFk], references: [id])
+  attendanceEvents    AttendanceEvent[]
+  sourceOpenShifts    OpenShift[]
+
+  @@index([employeeIdFk, shiftDate])
+  @@index([departmentIdFk, shiftDate])
+}
+
+model AttendanceEvent {
+  id                    String                @id @default(cuid())
+  shiftAssignmentIdFk   String
+  employeeIdFk          String
+  departmentIdFk        String
+  eventStatus           AttendanceEventStatus
+  note                  String?
+  recordedByEmployeeIdFk String
+  recordedAt            DateTime              @default(now())
+  effectiveAt           DateTime?
+  isCurrent             Boolean               @default(true)
+  createdAt             DateTime              @default(now())
+  shiftAssignment       ShiftAssignment       @relation(fields: [shiftAssignmentIdFk], references: [id], onDelete: Cascade)
+  employee              Employee              @relation("AttendanceEmployees", fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  department            Department            @relation(fields: [departmentIdFk], references: [id], onDelete: Restrict)
+  recordedBy            Employee              @relation("AttendanceRecordedBy", fields: [recordedByEmployeeIdFk], references: [id])
+  pointEntries          PointEntry[]
+  pslEntries            PslEntry[]
+
+  @@index([shiftAssignmentIdFk, isCurrent])
+  @@index([departmentIdFk, recordedAt])
+}
+
+model PointEntry {
+  id                  String           @id @default(cuid())
+  employeeIdFk        String
+  attendanceEventIdFk String?
+  amount              Decimal          @db.Decimal(5, 2)
+  reasonCode          String
+  note                String?
+  enteredByEmployeeIdFk String
+  enteredAt           DateTime         @default(now())
+  employee            Employee         @relation("PointEmployees", fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  attendanceEvent     AttendanceEvent? @relation(fields: [attendanceEventIdFk], references: [id])
+  enteredBy           Employee         @relation("PointEnteredBy", fields: [enteredByEmployeeIdFk], references: [id])
+
+  @@index([employeeIdFk, enteredAt])
+}
+
+model PslEntry {
+  id                  String           @id @default(cuid())
+  employeeIdFk        String
+  attendanceEventIdFk String?
+  amountHours         Decimal          @db.Decimal(5, 2)
+  reasonCode          String
+  note                String?
+  enteredByEmployeeIdFk String
+  enteredAt           DateTime         @default(now())
+  employee            Employee         @relation("PslEmployees", fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  attendanceEvent     AttendanceEvent? @relation(fields: [attendanceEventIdFk], references: [id])
+  enteredBy           Employee         @relation("PslEnteredBy", fields: [enteredByEmployeeIdFk], references: [id])
+
+  @@index([employeeIdFk, enteredAt])
+}
+
+model LeaveRequest {
+  id                 String             @id @default(cuid())
+  employeeIdFk       String
+  requestType        LeaveRequestType
+  startDate          DateTime
+  endDate            DateTime
+  partialDayStartTime String?
+  partialDayEndTime  String?
+  note               String?
+  status             LeaveRequestStatus @default(PENDING)
+  submittedAt        DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  employee           Employee           @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+  decisions          LeaveRequestDecision[]
+
+  @@index([employeeIdFk, status])
+}
+
+model LeaveRequestDecision {
+  id                  String        @id @default(cuid())
+  leaveRequestIdFk    String
+  decidedByEmployeeIdFk String
+  decision            LeaveDecision
+  decisionNote        String?
+  decidedAt           DateTime      @default(now())
+  leaveRequest        LeaveRequest  @relation(fields: [leaveRequestIdFk], references: [id], onDelete: Cascade)
+  decidedBy           Employee      @relation("LeaveDecisionBy", fields: [decidedByEmployeeIdFk], references: [id])
+
+  @@index([leaveRequestIdFk, decidedAt])
+}
+
+model OpenShift {
+  id                      String           @id @default(cuid())
+  sourceShiftAssignmentIdFk String?
+  departmentIdFk          String
+  shiftDate               DateTime
+  startTime               String?
+  endTime                 String?
+  status                  OpenShiftStatus  @default(OPEN)
+  createdByEmployeeIdFk   String
+  createdAt               DateTime         @default(now())
+  closedAt                DateTime?
+  sourceShiftAssignment   ShiftAssignment? @relation(fields: [sourceShiftAssignmentIdFk], references: [id])
+  department              Department       @relation(fields: [departmentIdFk], references: [id], onDelete: Restrict)
+  createdBy               Employee         @relation("OpenShiftCreatedBy", fields: [createdByEmployeeIdFk], references: [id])
+  bids                    OpenShiftBid[]
+
+  @@index([departmentIdFk, shiftDate, status])
+}
+
+model OpenShiftBid {
+  id                String                        @id @default(cuid())
+  openShiftIdFk     String
+  employeeIdFk      String
+  eligibilityStatus OpenShiftBidEligibilityStatus
+  rankingScore      Decimal?                      @db.Decimal(8, 2)
+  submittedAt       DateTime                      @default(now())
+  awardedAt         DateTime?
+  openShift         OpenShift                     @relation(fields: [openShiftIdFk], references: [id], onDelete: Cascade)
+  employee          Employee                      @relation(fields: [employeeIdFk], references: [id], onDelete: Cascade)
+
+  @@index([openShiftIdFk, submittedAt])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  actorEmployeeIdFk String?
+  entityType      String
+  entityId        String
+  actionKey       String
+  beforeStateJson Json?
+  afterStateJson  Json?
+  metadataJson    Json?
+  createdAt       DateTime @default(now())
+  actor           Employee? @relation("AuditActors", fields: [actorEmployeeIdFk], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+}

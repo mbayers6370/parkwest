@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/.nvm/versions/node/v23.2.0/bin/npx tsc:*)",
+      "Bash(~/.nvm/versions/node/v20.20.2/bin/npx tsc:*)",
+      "Bash(~/.nvm/versions/node/v20.20.2/bin/node ~/.nvm/versions/node/v20.20.2/bin/npx tsc --noEmit --project /Users/matthewbayers/Desktop/Parkwest/tsconfig.json)",
+      "Bash(export PATH=\"$HOME/.nvm/versions/node/v20.20.2/bin:$PATH\")",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(node_modules/.bin/tsc --noEmit)"
+    ]
+  }
+}

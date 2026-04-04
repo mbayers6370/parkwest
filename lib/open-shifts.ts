@@ -1,0 +1,16 @@
+export const OPEN_SHIFT_POSTS = [
+  { id: "sat-6pm", title: "Dealer · Saturday", line: "Start at 6PM" },
+  { id: "sun-10am", title: "Dealer · Sunday", line: "Start at 10AM" },
+  { id: "fri-2pm", title: "Dealer · Friday", line: "Start at 2PM" },
+  { id: "fri-6pm", title: "Dealer · Friday", line: "Start at 6PM" },
+  { id: "mon-10am", title: "Dealer · Monday", line: "Start at 10AM" },
+  { id: "mon-2pm", title: "Dealer · Monday", line: "Start at 2PM" },
+  { id: "tue-2pm", title: "Dealer · Tuesday", line: "Start at 2PM" },
+  { id: "tue-6pm", title: "Dealer · Tuesday", line: "Start at 6PM" },
+  { id: "wed-10am", title: "Dealer · Wednesday", line: "Start at 10AM" },
+  { id: "wed-6pm", title: "Dealer · Wednesday", line: "Start at 6PM" },
+  { id: "thu-10am", title: "Dealer · Thursday", line: "Start at 10AM" },
+  { id: "thu-2pm", title: "Dealer · Thursday", line: "Start at 2PM" },
+  { id: "sat-10am", title: "Dealer · Saturday", line: "Start at 10AM" },
+  { id: "sun-6pm", title: "Dealer · Sunday", line: "Start at 6PM" },
+];
