@@ -1,0 +1,53 @@
+.exchangeList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exchangeBoardCard {
+  max-height: 85vh;
+}
+
+.exchangeScrollBody {
+  overflow: hidden;
+}
+
+.exchangeScrollList {
+  max-height: calc(85vh - 220px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.exchangeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 14px 13px;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 18%, var(--ivory-100));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ivory-100) 95%, var(--gold-light) 5%);
+}
+
+.exchangeRowTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.exchangeRowTime {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--foreground-emphasis);
+}
+
+@media (min-width: 900px) {
+  .exchangeBoardCard {
+    max-height: 90vh;
+  }
+
+  .exchangeScrollList {
+    max-height: calc(90vh - 220px);
+  }
+}

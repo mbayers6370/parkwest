@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -70,8 +71,15 @@ export function AdminNav() {
       {/* ── Desktop Sidebar ── */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-brand">
+          <Image
+            src="/logo2x.png"
+            alt="Parkwest Casinos"
+            width={100}
+            height={67}
+            className="admin-brand-logo"
+            priority
+          />
           <p className="admin-brand-kicker">Manager / Admin</p>
-          <p className="admin-brand-name">Parkwest</p>
         </div>
 
         <nav className="admin-sidebar-nav" aria-label="Admin Navigation">
@@ -107,8 +115,15 @@ export function AdminNav() {
       {/* ── Mobile Top Bar ── */}
       <div className="admin-mobile-topbar" role="banner">
         <div className="admin-mobile-brand-wrap">
+          <Image
+            src="/logo2x.png"
+            alt="Parkwest Casinos"
+            width={220}
+            height={67}
+            className="admin-mobile-logo"
+            priority
+          />
           <p className="admin-mobile-kicker">Manager / Admin</p>
-          <p className="admin-mobile-brand">Parkwest</p>
         </div>
         <div className="admin-mobile-ws-links">
           <Link href="/personal" className="admin-mobile-ws-link">

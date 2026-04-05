@@ -1,0 +1,43 @@
+.personalBottomNav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 66px;
+  background: color-mix(in srgb, var(--ivory-100) 97%, transparent);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px;
+}
+
+.personalBottomTab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  color: var(--foreground-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  transition: color 0.12s;
+  min-width: 0;
+}
+
+.personalBottomTabActive {
+  color: var(--gold-dark);
+}
+
+@media (min-width: 900px) {
+  .personalBottomNav {
+    display: none;
+  }
+}

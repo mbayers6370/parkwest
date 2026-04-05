@@ -1,26 +1,30 @@
 import { OPEN_SHIFT_POSTS } from "@/lib/open-shifts";
+import shared from "../personal-shared.module.css";
+import styles from "./exchange.module.css";
 
 export default function PersonalExchangePage() {
   return (
-    <main className="personal-content">
-      <div className="personal-col-main personal-section personal-full-span">
-        <div className="personal-section-header">
+    <main className={shared.personalContent}>
+      <div
+        className={`${shared.personalColMain} ${shared.personalSection} ${shared.personalFullSpan}`}
+      >
+        <div className={shared.personalSectionHeader}>
           <div>
-            <p className="personal-section-kicker">Shift Exchange</p>
-            <h2 className="personal-section-title">Open Shifts</h2>
+            <p className={shared.personalSectionKicker}>Shift Exchange</p>
+            <h2 className={shared.personalSectionTitle}>Open Shifts</h2>
           </div>
         </div>
 
-        <div className="p-card exchange-board-card">
-          <div className="p-card-header">
-            <p className="p-card-title">Open Shifts</p>
+        <div className={`${shared.pCard} ${styles.exchangeBoardCard}`}>
+          <div className={shared.pCardHeader}>
+            <p className={shared.pCardTitle}>Open Shifts</p>
           </div>
-          <div className="p-card-body exchange-scroll-body">
-            <div className="exchange-list exchange-scroll-list">
+          <div className={`${shared.pCardBody} ${styles.exchangeScrollBody}`}>
+            <div className={`${styles.exchangeList} ${styles.exchangeScrollList}`}>
               {OPEN_SHIFT_POSTS.map((post) => (
-                <div key={post.id} className="exchange-row">
-                  <p className="exchange-row-title">{post.title}</p>
-                  <p className="exchange-row-time">{post.line}</p>
+                <div key={post.id} className={styles.exchangeRow}>
+                  <p className={styles.exchangeRowTitle}>{post.title}</p>
+                  <p className={styles.exchangeRowTime}>{post.line}</p>
                 </div>
               ))}
             </div>

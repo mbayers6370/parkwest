@@ -1,0 +1,61 @@
+.personalProfileCardHeader {
+  justify-content: center;
+  text-align: center;
+}
+
+.personalProfileCardBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.personalProfileSummary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.profileAvatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--background-top-glow);
+  color: var(--gold-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: var(--text-xl-plus);
+  flex-shrink: 0;
+}
+
+.profileIdentityTitle {
+  margin: 0 0 2px;
+  font-weight: 800;
+  font-size: var(--text-base-plus);
+}
+
+.profileIdentitySubtle,
+.profileMutedValue {
+  margin: 0;
+  color: var(--foreground-muted);
+  font-size: var(--text-md-minus);
+}
+
+.dataList {
+  width: 100%;
+  max-width: 440px;
+}
+
+.passwordNotice {
+  margin-bottom: 14px;
+}
+
+.fullWidthButton {
+  width: 100%;
+  text-align: center;
+  min-height: 48px;
+  opacity: 0.5;
+}

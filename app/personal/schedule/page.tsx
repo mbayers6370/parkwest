@@ -1,16 +1,61 @@
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+"use client";
 
-// Placeholder weeks — will pull from schedule API once DB is live
-const SCHEDULE_ROWS = [
-  { date: "Sat Apr 12", dayShort: "Sat", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealers Floor", status: "scheduled" },
-  { date: "Sun Apr 13", dayShort: "Sun", shiftTime: "OFF", dept: "", status: "off" },
-  { date: "Mon Apr 14", dayShort: "Mon", shiftTime: "2:00 – 10:00 PM", dept: "Dealers Floor", status: "scheduled" },
-  { date: "Tue Apr 15", dayShort: "Tue", shiftTime: "2:00 – 10:00 PM", dept: "Dealers Floor", status: "scheduled" },
-  { date: "Wed Apr 16", dayShort: "Wed", shiftTime: "OFF", dept: "", status: "off" },
-  { date: "Thu Apr 17", dayShort: "Thu", shiftTime: "OFF", dept: "", status: "off" },
-  { date: "Fri Apr 18", dayShort: "Fri", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealers Floor", status: "scheduled" },
-];
+import { useEffect, useMemo, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MessageSquareMore,
+  Repeat,
+  Split,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  getAllAttendanceEvents,
+  getAttendanceSummary,
+  type AttendanceEvent,
+} from "@/lib/attendance-events";
+import {
+  ATTENDANCE_EVENTS_UPDATED_EVENT,
+  loadStoredAttendanceEvents,
+} from "@/lib/attendance-event-store";
+import {
+  getAllEmployeeNames,
+  getScheduleEntriesForEmployee,
+  getScheduleEntryForEmployeeAndDate,
+  type ScheduleEntry,
+} from "@/lib/mock-schedule";
+import {
+  loadStoredSchedule,
+  SCHEDULE_UPDATED_EVENT,
+} from "@/lib/mock-schedule-store";
+import {
+  applyScheduleOverrides,
+  type ScheduleOverride,
+} from "@/lib/schedule-overrides";
+import {
+  applyApprovedGiveawayRequest,
+  getEmployeeShiftExchangeRole,
+  SHIFT_REQUEST_ROUTE_LABELS,
+  SHIFT_REQUEST_KIND_LABELS,
+  validateShiftGiveawayRequest,
+  type ShiftGiveawayRequest,
+} from "@/lib/shift-giveaway-requests";
+import {
+  loadStoredShiftGiveawayRequests,
+  saveStoredShiftGiveawayRequests,
+  SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
+} from "@/lib/shift-giveaway-request-store";
+import {
+  loadStoredScheduleOverrides,
+  SCHEDULE_OVERRIDES_UPDATED_EVENT,
+} from "@/lib/schedule-override-store";
+import { saveStoredSchedule } from "@/lib/mock-schedule-store";
+import shared from "../personal-shared.module.css";
+import styles from "./schedule.module.css";
+
+const CURRENT_EMPLOYEE_NAME = "Matthew Bayers";
+const WEEK_START_ISO = "2026-04-12";
+const WEEK_END_ISO = "2026-04-18";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   scheduled: { label: "Scheduled", cls: "success" },
@@ -20,25 +65,276 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   psl: { label: "PSL", cls: "gold" },
 };
 
+const ACTION_OPTIONS = [
+  { id: "giveaway", label: "Give Away Shift", icon: Repeat },
+  { id: "switch", label: "Switch Shift", icon: Split },
+  { id: "post", label: "Post Shift", icon: Repeat },
+  { id: "problem", label: "Report Problem", icon: TriangleAlert },
+] as const;
+
+type ActionType = (typeof ACTION_OPTIONS)[number]["id"];
+
 export default function PersonalSchedulePage() {
+  const [storedAttendanceEvents, setStoredAttendanceEvents] = useState<AttendanceEvent[]>([]);
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
+  const [giveawayRequests, setGiveawayRequests] = useState<ShiftGiveawayRequest[]>([]);
+  const [selectedDayId, setSelectedDayId] = useState<string>("");
+  const [selectedAction, setSelectedAction] = useState<ActionType>("giveaway");
+  const [actionNote, setActionNote] = useState("");
+  const [selectedDealerName, setSelectedDealerName] = useState("");
+  const [submitMessage, setSubmitMessage] = useState("");
+
+  useEffect(() => {
+    const syncStoredEvents = () => {
+      setStoredAttendanceEvents(loadStoredAttendanceEvents());
+    };
+    const syncSchedule = () => {
+      setScheduleEntries(loadStoredSchedule());
+    };
+    const syncRequests = () => {
+      setGiveawayRequests(loadStoredShiftGiveawayRequests());
+    };
+    const syncOverrides = () => {
+      setScheduleOverrides(loadStoredScheduleOverrides());
+    };
+
+    syncStoredEvents();
+    syncSchedule();
+    syncRequests();
+    syncOverrides();
+
+    window.addEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
+    window.addEventListener(SCHEDULE_UPDATED_EVENT, syncSchedule);
+    window.addEventListener(SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT, syncRequests);
+    window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncOverrides);
+    window.addEventListener("storage", syncStoredEvents);
+    window.addEventListener("storage", syncSchedule);
+    window.addEventListener("storage", syncRequests);
+    window.addEventListener("storage", syncOverrides);
+
+    return () => {
+      window.removeEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
+      window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncSchedule);
+      window.removeEventListener(SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT, syncRequests);
+      window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncOverrides);
+      window.removeEventListener("storage", syncStoredEvents);
+      window.removeEventListener("storage", syncSchedule);
+      window.removeEventListener("storage", syncRequests);
+      window.removeEventListener("storage", syncOverrides);
+    };
+  }, []);
+
+  const effectiveScheduleEntries = useMemo(
+    () => applyScheduleOverrides(scheduleEntries, scheduleOverrides),
+    [scheduleEntries, scheduleOverrides],
+  );
+
+  const scheduleRows = useMemo(
+    () =>
+      getScheduleEntriesForEmployee(effectiveScheduleEntries, CURRENT_EMPLOYEE_NAME)
+        .filter((entry) => entry.shiftDate >= WEEK_START_ISO && entry.shiftDate <= WEEK_END_ISO)
+        .sort((a, b) => a.shiftDate.localeCompare(b.shiftDate)),
+    [effectiveScheduleEntries],
+  );
+
+  useEffect(() => {
+    if (!selectedDayId && scheduleRows[0]) {
+      setSelectedDayId(scheduleRows[0].id);
+    }
+  }, [scheduleRows, selectedDayId]);
+
+  const weekAttendanceSummary = useMemo(() => {
+    const employeeWeekEvents = getAllAttendanceEvents(storedAttendanceEvents).filter(
+      (event) =>
+        event.employeeName === CURRENT_EMPLOYEE_NAME &&
+        event.shiftDate >= WEEK_START_ISO &&
+        event.shiftDate <= WEEK_END_ISO,
+    );
+
+    return getAttendanceSummary(employeeWeekEvents);
+  }, [storedAttendanceEvents]);
+
+  const shiftsScheduled = scheduleRows.filter((row) => row.status === "scheduled").length;
+  const daysOff = scheduleRows.filter((row) => row.status === "off").length;
+  const totalHours = scheduleRows.reduce((total, row) => {
+    if (row.status !== "scheduled" || row.shiftTime === "OFF") {
+      return total;
+    }
+
+    return total + 8;
+  }, 0);
+
+  const summaryCards = [
+    { label: "Shifts Scheduled", value: String(shiftsScheduled), badgeClass: "success" },
+    { label: "Days Off", value: String(daysOff), badgeClass: "warning" },
+    { label: "Total Hours", value: `${totalHours}h`, badgeClass: "gold" },
+    {
+      label: "Full Points Used",
+      value: String(weekAttendanceSummary.pointCallOuts),
+      badgeClass: "danger",
+    },
+    {
+      label: "Half Points Used",
+      value: String(weekAttendanceSummary.halfPoints),
+      badgeClass: "warning",
+    },
+    {
+      label: "PSL Hours Used",
+      value: `${weekAttendanceSummary.pslHours}h`,
+      badgeClass: "gold",
+    },
+    {
+      label: "Reverse PSL Uses",
+      value: String(weekAttendanceSummary.reversePsl),
+      badgeClass: "success",
+    },
+  ];
+
+  const selectedDay =
+    scheduleRows.find((row) => row.id === selectedDayId) ?? scheduleRows[0] ?? null;
+  const isWorkingDay = selectedDay?.status === "scheduled";
+  const availableActions = isWorkingDay
+    ? ACTION_OPTIONS
+    : ACTION_OPTIONS.filter((action) => action.id === "problem");
+
+  useEffect(() => {
+    if (availableActions.length > 0 && !availableActions.some((action) => action.id === selectedAction)) {
+      setSelectedAction(availableActions[0].id);
+    }
+  }, [availableActions, selectedAction]);
+
+  const selectedDayCandidates = useMemo(() => {
+    if (!selectedDay || (selectedAction !== "giveaway" && selectedAction !== "switch")) {
+      return [];
+    }
+
+    return getAllEmployeeNames(effectiveScheduleEntries)
+      .filter((name) => name !== CURRENT_EMPLOYEE_NAME)
+      .map((name) => {
+        const scheduleEntry = getScheduleEntryForEmployeeAndDate(
+          effectiveScheduleEntries,
+          name,
+          selectedDay.shiftDate,
+        );
+
+        return {
+          name,
+          scheduleEntry,
+          validation: validateShiftGiveawayRequest({
+            scheduleEntries: effectiveScheduleEntries,
+            requesterName: CURRENT_EMPLOYEE_NAME,
+            targetDealerName: name,
+            shiftDate: selectedDay.shiftDate,
+            requestKind: selectedAction,
+          }),
+        };
+      })
+      .filter(
+        (candidate) =>
+          candidate.scheduleEntry &&
+          (selectedAction !== "switch" || candidate.scheduleEntry.status === "scheduled") &&
+          (selectedAction !== "switch" || candidate.validation.roleCompatible),
+      );
+  }, [effectiveScheduleEntries, selectedAction, selectedDay]);
+
+  const selectedCandidate = selectedDayCandidates.find(
+    (candidate) => candidate.name === selectedDealerName,
+  );
+
+  const selectedDayRequest = useMemo(
+    () =>
+      giveawayRequests.find(
+        (request) =>
+          request.requesterName === CURRENT_EMPLOYEE_NAME &&
+          request.shiftDate === selectedDay?.shiftDate &&
+          request.requestKind === (selectedAction === "switch" ? "switch" : "giveaway") &&
+          request.status === "pending",
+      ) ?? null,
+    [giveawayRequests, selectedAction, selectedDay],
+  );
+  const currentEmployeeRole = useMemo(
+    () =>
+      getEmployeeShiftExchangeRole(
+        effectiveScheduleEntries,
+        CURRENT_EMPLOYEE_NAME,
+        selectedDay?.shiftDate,
+      ),
+    [effectiveScheduleEntries, selectedDay?.shiftDate],
+  );
+
+  function handleSubmitShiftRequest() {
+    if (!selectedDay || !selectedCandidate || !selectedCandidate.validation.valid) {
+      return;
+    }
+
+    const approvalRoute = selectedCandidate.validation.approvalRoute;
+    const nextRequest: ShiftGiveawayRequest = {
+      id: `giveaway-${Date.now()}`,
+      requestKind: selectedAction === "switch" ? "switch" : "giveaway",
+      requesterName: CURRENT_EMPLOYEE_NAME,
+      requesterRole: selectedCandidate.validation.requesterRole,
+      targetDealerName: selectedCandidate.name,
+      targetDealerRole: selectedCandidate.validation.targetRole,
+      shiftDate: selectedDay.shiftDate,
+      shiftDayLabel: selectedDay.dayLabel,
+      requesterShiftTime: selectedDay.shiftTime,
+      targetDealerShiftTime: selectedCandidate.scheduleEntry?.shiftTime ?? "OFF",
+      targetDealerStatus: selectedCandidate.scheduleEntry?.status ?? "off",
+      approvalRoute,
+      note: actionNote.trim() || undefined,
+      status: approvalRoute === "automatic" ? "approved" : "pending",
+      submittedAt: new Date().toISOString(),
+      reviewedAt: approvalRoute === "automatic" ? new Date().toISOString() : undefined,
+      reviewedBy: approvalRoute === "automatic" ? "Automatic Floor Rule" : undefined,
+      validationSnapshot: {
+        submittedAtLeastFourHoursBefore:
+          selectedCandidate.validation.submittedAtLeastFourHoursBefore,
+        targetDealerEligibleForRestWindow:
+          selectedCandidate.validation.targetDealerEligibleForRestWindow,
+        restHoursBeforeShift: selectedCandidate.validation.restHoursBeforeShift,
+        targetDealerAlreadyAtSixDays:
+          selectedCandidate.validation.targetDealerAlreadyAtSixDays,
+      },
+    };
+
+    if (approvalRoute === "automatic") {
+      const nextScheduleEntries = applyApprovedGiveawayRequest(scheduleEntries, nextRequest);
+      setScheduleEntries(nextScheduleEntries);
+      saveStoredSchedule(nextScheduleEntries);
+    }
+
+    const nextRequests = [nextRequest, ...giveawayRequests];
+    setGiveawayRequests(nextRequests);
+    saveStoredShiftGiveawayRequests(nextRequests);
+    setSubmitMessage(
+      approvalRoute === "automatic"
+        ? "Switch processed automatically."
+        : approvalRoute === "admin_only"
+          ? `${selectedAction === "switch" ? "Switch" : "Giveaway"} request sent to admin.`
+          : selectedAction === "switch"
+            ? "Switch request sent for floor and admin review."
+            : "Giveaway request sent for floor and admin review.",
+    );
+    setActionNote("");
+    setSelectedDealerName("");
+    window.setTimeout(() => setSubmitMessage(""), 4000);
+  }
+
   return (
-    <main className="personal-content">
-
-      {/* ── Mobile: card per day ── */}
-      <div className="personal-col-main schedule-page-main">
-
-        {/* Week header card */}
-        <div className="p-card schedule-week-header-card">
-          <div className="p-card-header">
+    <main className={shared.personalContent}>
+      <div className={`${shared.personalColMain} ${styles.schedulePageMain}`}>
+        <div className={`${shared.pCard} ${styles.scheduleWeekHeaderCard}`}>
+          <div className={shared.pCardHeader}>
             <div>
-              <p className="p-card-title">Week of April 12</p>
+              <p className={shared.pCardTitle}>Week of April 12</p>
             </div>
-            <div className="schedule-week-nav">
-              <button className="secondary-button schedule-week-nav-button" type="button">
+            <div className={styles.scheduleWeekNav}>
+              <button className={`secondary-button ${styles.scheduleWeekNavButton}`} type="button">
                 <ChevronLeft size={16} strokeWidth={2} />
                 <span>Prev</span>
               </button>
-              <button className="secondary-button schedule-week-nav-button" type="button">
+              <button className={`secondary-button ${styles.scheduleWeekNavButton}`} type="button">
                 <span>Next</span>
                 <ChevronRight size={16} strokeWidth={2} />
               </button>
@@ -46,79 +342,246 @@ export default function PersonalSchedulePage() {
           </div>
         </div>
 
-        <div className="schedule-day-list">
-          {/* Day cards — shown on mobile, becomes section rows on desktop */}
-          {SCHEDULE_ROWS.map((row) => (
-            <div
-              key={row.date}
-              className="p-card schedule-day-card"
-              style={row.status === "off" ? { opacity: 0.7 } : undefined}
-            >
-              <div className="p-card-body" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 10,
-                    background: row.status === "off" ? "var(--surface-muted)" : "color-mix(in srgb, var(--gold) 10%, transparent)",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase" }}>
-                    {row.dayShort}
-                  </span>
-                  <span style={{ fontSize: "var(--text-base-plus)", fontWeight: 800 }}>
-                    {row.date.replace(/[A-Za-z]+\s/, "").split(" ")[1]}
+        <div className={styles.scheduleDayGrid}>
+          {scheduleRows.map((row) => {
+            const isSelected = row.id === selectedDayId;
+
+            return (
+              <button
+                key={row.id}
+                type="button"
+                className={`${styles.scheduleDayTile} ${row.status === "off" ? styles.scheduleDayTileOff : ""} ${isSelected ? styles.scheduleDayTileSelected : ""}`}
+                onClick={() => setSelectedDayId(row.id)}
+              >
+                <div className={styles.scheduleDayTileTop}>
+                  <div
+                    className={`${styles.scheduleDayBadge} ${row.status === "off" ? styles.scheduleDayBadgeOff : ""}`}
+                  >
+                    <span className={styles.scheduleDayBadgeLabel}>{row.dayShort}</span>
+                    <span className={styles.scheduleDayBadgeNumber}>
+                      {row.shiftDate.slice(-2).replace(/^0/, "")}
+                    </span>
+                  </div>
+                  <span className={`badge ${STATUS_BADGE[row.status]?.cls ?? "gold"}`}>
+                    {STATUS_BADGE[row.status]?.label ?? row.status}
                   </span>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: "var(--text-lg-minus)" }}>
-                    {row.shiftTime}
-                  </p>
-                  {row.dept && (
-                    <p style={{ margin: 0, fontSize: "var(--text-sm-plus)", color: "var(--foreground-muted)" }}>
-                      {row.dept}
-                    </p>
+
+                <div className={styles.scheduleDayTileBody}>
+                  <p className={styles.scheduleDayTime}>{row.shiftTime}</p>
+                  <p className={styles.scheduleDayDept}>{row.dept || "No shift scheduled"}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedDay && (
+          <div className={`${shared.pCard} ${styles.scheduleActionCard}`}>
+            <div className={shared.pCardHeader}>
+              <div>
+                <p className={shared.pCardTitle}>{selectedDay.dayLabel}</p>
+                <p className={styles.scheduleActionSubtitle}>
+                  {selectedDay.shiftTime}
+                  {selectedDay.dept ? ` · ${selectedDay.dept}` : ""}
+                </p>
+              </div>
+            </div>
+            <div className={shared.pCardBody}>
+              <div className={styles.scheduleActionGrid}>
+                {availableActions.map((action) => {
+                  const Icon = action.icon;
+                  const isSelected = selectedAction === action.id;
+
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className={`${styles.scheduleActionPill} ${isSelected ? styles.scheduleActionPillSelected : ""}`}
+                      onClick={() => setSelectedAction(action.id)}
+                    >
+                      <Icon size={15} aria-hidden="true" />
+                      <span>{action.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {(selectedAction === "giveaway" || selectedAction === "switch") && isWorkingDay ? (
+                <div className={styles.scheduleGiveawayPanel}>
+                  <div className={shared.pField}>
+                    <label className={shared.pLabel} htmlFor="giveaway-dealer">
+                      {selectedAction === "switch" ? "Choose Coworker to Switch With" : "Choose Coworker"}
+                    </label>
+                    <select
+                      id="giveaway-dealer"
+                      className="text-input"
+                      value={selectedDealerName}
+                      onChange={(event) => setSelectedDealerName(event.target.value)}
+                    >
+                      <option value="">Select a coworker</option>
+                      {selectedDayCandidates.map((candidate) => (
+                        <option key={candidate.name} value={candidate.name}>
+                          {candidate.name}
+                          {" · "}
+                          {candidate.scheduleEntry?.shiftTime ?? "OFF"}
+                          {candidate.validation.targetRole
+                            ? ` · ${candidate.validation.targetRole.replace("_", " ")}`
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedCandidate && (
+                    <div className={styles.scheduleValidationBlock}>
+                      <p className={styles.scheduleValidationLine}>
+                        {selectedAction === "switch"
+                          ? `This coworker is currently scheduled for ${selectedCandidate.scheduleEntry?.shiftTime}.`
+                          : selectedCandidate.scheduleEntry?.status === "off"
+                            ? "This coworker is off that day."
+                            : `This coworker is currently scheduled for ${selectedCandidate.scheduleEntry?.shiftTime}.`}
+                      </p>
+                      <p className={styles.scheduleValidationLine}>
+                        Routing:{" "}
+                        {SHIFT_REQUEST_ROUTE_LABELS[
+                          selectedCandidate.validation.approvalRoute ?? "floor_admin"
+                        ]}
+                      </p>
+                      {selectedCandidate.validation.restHoursBeforeShift !== null && (
+                        <p className={styles.scheduleValidationLine}>
+                          Rest before shift: {selectedCandidate.validation.restHoursBeforeShift} hours
+                        </p>
+                      )}
+                      {selectedCandidate.validation.targetDealerAlreadyAtSixDays && (
+                        <div className="notice-card danger">
+                          <TriangleAlert size={14} aria-hidden="true" />
+                          <div>
+                            <p className="notice-title">Red flag</p>
+                            <p className="notice-body">
+                              This dealer is already scheduled for six days this week. Floor and
+                              admin will see this note before approval.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {!selectedCandidate.validation.valid && (
+                        <div className="notice-card info">
+                          <MessageSquareMore size={14} aria-hidden="true" />
+                          <div>
+                            <p className="notice-title">Cannot submit yet</p>
+                            <p className="notice-body">{selectedCandidate.validation.message}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-                <span className={`badge ${STATUS_BADGE[row.status]?.cls ?? "gold"}`}>
-                  {STATUS_BADGE[row.status]?.label ?? row.status}
-                </span>
+              ) : null}
+
+              <div className={styles.scheduleActionNote}>
+                <label className={shared.pLabel} htmlFor="schedule-day-note">
+                  {selectedAction === "problem"
+                    ? "Describe the issue for this day"
+                      : selectedAction === "post"
+                        ? "Add notes for the shift post"
+                        : selectedAction === "switch"
+                          ? "Add context for this switch request"
+                      : "Add context for this giveaway request"}
+                </label>
+                <textarea
+                  id="schedule-day-note"
+                  className="text-input"
+                  rows={4}
+                  value={actionNote}
+                  onChange={(event) => setActionNote(event.target.value)}
+                  placeholder={
+                    selectedAction === "problem"
+                      ? "Let your manager know what went wrong for this day."
+                      : "Add anything your manager or coworkers should know."
+                  }
+                  style={{ resize: "vertical" }}
+                />
               </div>
+
+              <div className={styles.scheduleActionFooter}>
+                <div className={styles.scheduleActionHint}>
+                  <MessageSquareMore size={15} aria-hidden="true" />
+                  <span>
+                    {selectedAction === "problem"
+                      ? "This will go to admin for review."
+                      : selectedAction === "giveaway" || selectedAction === "switch"
+                        ? selectedCandidate
+                          ? selectedCandidate.validation.approvalRoute === "automatic"
+                            ? "This will process automatically based on floor role rules."
+                            : selectedCandidate.validation.approvalRoute === "admin_only"
+                              ? "This will go to admin only for review."
+                              : "This will go to floor and admin for approval."
+                          : currentEmployeeRole === "chip_runner" || currentEmployeeRole === "cage"
+                            ? "This request type routes to admin only."
+                            : "This will go to floor and admin for approval."
+                        : "Posting flow is staged for the exchange board next."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={
+                    selectedAction === "giveaway" || selectedAction === "switch"
+                      ? !selectedCandidate || !selectedCandidate.validation.valid || Boolean(selectedDayRequest)
+                      : true
+                  }
+                  onClick={() => {
+                    if (selectedAction === "giveaway" || selectedAction === "switch") {
+                      handleSubmitShiftRequest();
+                    }
+                  }}
+                >
+                  {selectedAction === "problem"
+                    ? "Submit Issue"
+                    : selectedAction === "post"
+                      ? "Post Shift"
+                      : selectedDayRequest
+                        ? "Request Pending"
+                        : selectedAction === "switch"
+                          ? selectedCandidate?.validation.approvalRoute === "automatic"
+                            ? "Process Switch"
+                            : "Request Switch"
+                          : "Request Giveaway"}
+                </button>
+              </div>
+
+              {submitMessage ? (
+                <p className={styles.scheduleSubmitMessage}>{submitMessage}</p>
+              ) : selectedDayRequest ? (
+                <p className={styles.scheduleSubmitMessage}>
+                  {SHIFT_REQUEST_KIND_LABELS[selectedDayRequest.requestKind]} request pending review.
+                </p>
+              ) : null}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Side column (desktop) ── */}
-      <div className="personal-col-side">
-        <div className="p-card">
-          <div className="p-card-header">
-            <p className="p-card-title">Week Summary</p>
+      <div className={shared.personalColSide}>
+        <div className={shared.pCard}>
+          <div className={shared.pCardHeader}>
+            <p className={shared.pCardTitle}>Week Summary</p>
           </div>
-          <div className="p-card-body">
-            <div className="data-list">
-              <div className="data-row">
-                <div className="data-row-main"><p className="data-row-title">Shifts scheduled</p></div>
-                <span className="badge success">4</span>
-              </div>
-              <div className="data-row">
-                <div className="data-row-main"><p className="data-row-title">Days off</p></div>
-                <span className="badge warning">3</span>
-              </div>
-              <div className="data-row">
-                <div className="data-row-main"><p className="data-row-title">Total hours</p></div>
-                <span className="badge gold">32h</span>
-              </div>
+          <div className={shared.pCardBody}>
+            <div className={styles.summaryGrid}>
+              {summaryCards.map((card) => (
+                <div key={card.label} className={styles.summaryStatCard}>
+                  <p className={styles.summaryStatLabel}>{card.label}</p>
+                  <span className={`badge ${card.badgeClass} ${styles.summaryStatValue}`}>
+                    {card.value}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
-
     </main>
   );
 }

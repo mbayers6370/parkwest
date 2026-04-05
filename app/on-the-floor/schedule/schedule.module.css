@@ -1,0 +1,190 @@
+.floorContent { composes: floorContent from "../floor.module.css"; }
+.floorControlBar { composes: floorControlBar from "../floor.module.css"; }
+.floorFilterLabel { composes: floorFilterLabel from "../floor.module.css"; }
+.floorFilterRow { composes: floorFilterRow from "../floor.module.css"; }
+.floorMainCol { composes: floorMainCol from "../floor.module.css"; }
+.floorPill { composes: floorPill from "../floor.module.css"; }
+.floorPillActive { composes: floorPillActive from "../floor.module.css"; }
+.floorSection { composes: floorSection from "../floor.module.css"; }
+.floorSectionHeader { composes: floorSectionHeader from "../floor.module.css"; }
+.floorSectionTitle { composes: floorSectionTitle from "../floor.module.css"; }
+
+.floorSchedulePageMain {
+  width: 100%;
+  align-items: center;
+  gap: var(--gap-card-desktop);
+}
+
+.floorScheduleSheet {
+  width: min(100%, 1080px);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--charcoal-900) 7%, transparent);
+}
+
+.floorScheduleSheetBody {
+  padding: 20px 22px 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--ivory-100) 94%, transparent), var(--surface)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 8%, transparent), transparent 45%);
+}
+
+.floorScheduleMatrixWrap {
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 16%, var(--ivory-100));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
+}
+
+.floorScheduleMatrix {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.floorScheduleMatrix thead th {
+  padding: 14px 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--charcoal-500) 16%, var(--ivory-100));
+  background: color-mix(in srgb, var(--ivory-100) 95%, var(--gold-light) 5%);
+}
+
+.floorScheduleNameHead {
+  min-width: 182px;
+  text-align: left;
+  font-size: var(--text-sm-plus);
+  font-weight: 800;
+  color: var(--foreground-emphasis);
+}
+
+.floorScheduleDayHead {
+  min-width: 96px;
+  text-align: center;
+}
+
+.floorScheduleDayLabel,
+.floorScheduleDayDate {
+  display: block;
+}
+
+.floorScheduleDayLabel {
+  font-size: var(--text-sm);
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.floorScheduleDayDate {
+  margin-top: 2px;
+  font-size: var(--text-xs-plus);
+  font-weight: 700;
+  color: var(--foreground-muted);
+}
+
+.floorScheduleMatrix tbody th,
+.floorScheduleMatrix tbody td {
+  border-bottom: 1px solid color-mix(in srgb, var(--charcoal-500) 14%, var(--ivory-100));
+}
+
+.floorScheduleMatrix tbody tr:last-child th,
+.floorScheduleMatrix tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.floorScheduleNameCell {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
+}
+
+.floorScheduleGridCell {
+  padding: 10px 8px;
+  text-align: center;
+  background: color-mix(in srgb, var(--ivory-100) 90%, transparent);
+}
+
+.floorScheduleGridCellOff {
+  background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
+}
+
+.floorScheduleOffText {
+  font-size: var(--text-sm-plus);
+  font-weight: 700;
+  color: color-mix(in srgb, var(--charcoal-500) 72%, var(--ivory-100));
+  letter-spacing: 0.03em;
+}
+
+.floorScheduleShiftChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: var(--text-sm-plus);
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--charcoal-900) 8%, transparent);
+}
+
+.floorScheduleShiftChipPink {
+  background: #f7dadd;
+  border-color: #efc2c8;
+  color: #7b4b52;
+}
+
+.floorScheduleShiftChipBlue {
+  background: #d9e7fb;
+  border-color: #bfd4f4;
+  color: #46658f;
+}
+
+.floorScheduleShiftChipOrange {
+  background: #f7e1bf;
+  border-color: #efcf96;
+  color: #886338;
+}
+
+.floorScheduleShiftChipLavender {
+  background: #ebe0f6;
+  border-color: #d6c2e9;
+  color: #6c5286;
+}
+
+.floorScheduleShiftChipSky {
+  background: #cfe1fb;
+  border-color: #afcaf1;
+  color: #416a9a;
+}
+
+.floorScheduleShiftChipGreen {
+  background: #dceac8;
+  border-color: #bfd7a6;
+  color: #597541;
+}
+
+.floorScheduleShiftChipAmber {
+  background: #f8e17a;
+  border-color: #efca3f;
+  color: #725917;
+}
+
+.floorScheduleShiftChipCoral {
+  background: #f3c7bb;
+  border-color: #e6ab9a;
+  color: #865246;
+}
+
+.floorScheduleShiftChipRed {
+  background: #e88767;
+  border-color: #d86c49;
+  color: #6f2d1c;
+}
+
+@media (min-width: 900px) {
+  .floorSchedulePageMain {
+    grid-column: 1 / -1;
+  }
+}

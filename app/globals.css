@@ -280,9 +280,11 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: var(--text-base);
+  font-size: var(--text-xs-plus);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -293,21 +295,25 @@ textarea {
 .badge.gold {
   background: color-mix(in srgb, var(--gold) 18%, transparent);
   color: var(--gold-dark);
+  border-color: color-mix(in srgb, var(--gold-dark) 28%, transparent);
 }
 
 .badge.success {
   background: color-mix(in srgb, var(--charcoal-900) 8%, transparent);
   color: var(--foreground-emphasis);
+  border-color: color-mix(in srgb, var(--charcoal-700) 24%, transparent);
 }
 
 .badge.warning {
   background: color-mix(in srgb, var(--gold-light) 18%, transparent);
   color: var(--gold-dark);
+  border-color: color-mix(in srgb, var(--gold-dark) 28%, transparent);
 }
 
 .badge.danger {
   background: color-mix(in srgb, var(--charcoal-900) 12%, transparent);
   color: var(--foreground);
+  border-color: color-mix(in srgb, var(--charcoal-900) 24%, transparent);
 }
 
 
@@ -631,16 +637,16 @@ textarea {
   gap: 0;
   padding: 0 20px;
   justify-content: center;
-  background: color-mix(in srgb, var(--ivory-100) 97%, transparent);
-  border-bottom: 1px solid var(--border);
+  background: var(--charcoal-900);
+  border-bottom: 1px solid color-mix(in srgb, var(--ivory-100) 10%, transparent);
 }
 
 .portal-desktop-tab {
   padding: 9px 16px;
   border-bottom: 2px solid transparent;
-  color: var(--foreground-muted);
+  color: color-mix(in srgb, var(--ivory-100) 72%, transparent);
   font-size: var(--text-md);
-  font-weight: 600;
+  font-weight: 200;
   text-decoration: none;
   transition: color 0.12s, border-color 0.12s;
   white-space: nowrap;
@@ -648,15 +654,31 @@ textarea {
 }
 
 .portal-desktop-tab:hover {
-  color: var(--foreground);
+  color: var(--ivory-100);
 }
 
 .portal-desktop-tab.active {
-  color: var(--foreground);
+  color: var(--ivory-100);
   border-bottom-color: var(--gold);
 }
 
 @media (min-width: 900px) {
+  .portal-topbar-content {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  .portal-topbar-left {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .portal-topbar-right {
+    grid-column: 3;
+    justify-self: end;
+  }
+
   .portal-desktop-tabs {
     display: flex;
     position: sticky;

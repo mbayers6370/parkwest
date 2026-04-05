@@ -1,0 +1,143 @@
+.requestFormCard {
+  overflow: visible;
+}
+
+.requestFormHeader {
+  align-items: flex-start;
+}
+
+.requestPaperForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.requestSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 15%, var(--ivory-100));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ivory-100) 92%, transparent);
+}
+
+.requestSectionTitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+}
+
+.requestFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.requestFormGridThree {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.requestReasonList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.requestChoiceRow,
+.requestWindowCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 15%, var(--ivory-100));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.requestChoiceRow input,
+.requestWindowCard input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.requestChoiceRow svg,
+.requestWindowCard svg {
+  flex-shrink: 0;
+  color: var(--gold-dark);
+}
+
+.selected {
+  border-color: color-mix(in srgb, var(--gold-dark) 40%, var(--ivory-100));
+  background: color-mix(in srgb, var(--gold) 10%, var(--ivory-100));
+}
+
+.requestDatePreview {
+  margin: 2px 0 0;
+  color: var(--foreground-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.requestWindowGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.requestSubmitButton {
+  width: 100%;
+  min-height: 48px;
+}
+
+.requestRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-card);
+  padding: 16px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--charcoal-500) 15%, var(--ivory-100));
+}
+
+.requestRow:last-child {
+  border-bottom: none;
+}
+
+.requestInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.requestInfoTitle {
+  margin: 0 0 3px;
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.requestInfoDates {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--foreground-muted);
+}
+
+@media (max-width: 899px) {
+  .requestFormGrid,
+  .requestFormGridThree,
+  .requestReasonList,
+  .requestWindowGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .requestFormGridThree {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

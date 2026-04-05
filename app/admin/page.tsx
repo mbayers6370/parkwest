@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CircleAlert,
@@ -7,8 +10,38 @@ import {
   Upload,
   UserPlus,
   Users,
-  type LucideIcon,
 } from "lucide-react";
+import {
+  getAllAttendanceEvents,
+  getAttendanceSummary,
+  getLast24HourAttendanceEvents,
+  type AttendanceEvent,
+} from "@/lib/attendance-events";
+import { loadStoredAttendanceEvents } from "@/lib/attendance-event-store";
+import {
+  applyApprovedGiveawayRequest,
+  SHIFT_REQUEST_KIND_LABELS,
+  type ShiftGiveawayRequest,
+} from "@/lib/shift-giveaway-requests";
+import {
+  loadStoredShiftGiveawayRequests,
+  saveStoredShiftGiveawayRequests,
+  SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
+} from "@/lib/shift-giveaway-request-store";
+import {
+  loadStoredSchedule,
+  saveStoredSchedule,
+  SCHEDULE_UPDATED_EVENT,
+} from "@/lib/mock-schedule-store";
+import { type ScheduleEntry } from "@/lib/mock-schedule";
+import {
+  SCHEDULE_OVERRIDE_KIND_LABELS,
+  type ScheduleOverride,
+} from "@/lib/schedule-overrides";
+import {
+  loadStoredScheduleOverrides,
+  SCHEDULE_OVERRIDES_UPDATED_EVENT,
+} from "@/lib/schedule-override-store";
 
 const QUICK_ACTIONS = [
   {
@@ -50,12 +83,111 @@ const QUICK_ACTIONS = [
 ];
 
 export default function AdminOverviewPage() {
+  const [storedAttendanceEvents, setStoredAttendanceEvents] = useState<
+    AttendanceEvent[]
+  >([]);
+  const [giveawayRequests, setGiveawayRequests] = useState<ShiftGiveawayRequest[]>([]);
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
+
+  useEffect(() => {
+    const syncAttendanceEvents = () => {
+      setStoredAttendanceEvents(loadStoredAttendanceEvents());
+    };
+    const syncGiveawayRequests = () => {
+      setGiveawayRequests(loadStoredShiftGiveawayRequests());
+    };
+    const syncScheduleEntries = () => {
+      setScheduleEntries(loadStoredSchedule());
+    };
+    const syncScheduleOverrides = () => {
+      setScheduleOverrides(loadStoredScheduleOverrides());
+    };
+
+    syncAttendanceEvents();
+    syncGiveawayRequests();
+    syncScheduleEntries();
+    syncScheduleOverrides();
+
+    window.addEventListener("storage", syncAttendanceEvents);
+    window.addEventListener("storage", syncGiveawayRequests);
+    window.addEventListener("storage", syncScheduleEntries);
+    window.addEventListener("storage", syncScheduleOverrides);
+    window.addEventListener(
+      SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
+      syncGiveawayRequests,
+    );
+    window.addEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+    window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
+
+    return () => {
+      window.removeEventListener("storage", syncAttendanceEvents);
+      window.removeEventListener("storage", syncGiveawayRequests);
+      window.removeEventListener("storage", syncScheduleEntries);
+      window.removeEventListener("storage", syncScheduleOverrides);
+      window.removeEventListener(
+        SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
+        syncGiveawayRequests,
+      );
+      window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+      window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
+    };
+  }, []);
+
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
   });
+
+  const attendanceWindow = useMemo(() => {
+    return getLast24HourAttendanceEvents(
+      getAllAttendanceEvents(storedAttendanceEvents),
+      new Date().toISOString(),
+    );
+  }, [storedAttendanceEvents]);
+
+  const attendanceSummary = getAttendanceSummary(attendanceWindow);
+  const pendingGiveawayRequests = useMemo(
+    () => giveawayRequests.filter((request) => request.status === "pending"),
+    [giveawayRequests],
+  );
+  const recentScheduleOverrides = useMemo(
+    () =>
+      [...scheduleOverrides]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 5),
+    [scheduleOverrides],
+  );
+
+  function updateGiveawayRequest(requestId: string, status: "approved" | "denied") {
+    const request = giveawayRequests.find((entry) => entry.id === requestId);
+
+    if (!request) {
+      return;
+    }
+
+    if (status === "approved") {
+      const nextScheduleEntries = applyApprovedGiveawayRequest(scheduleEntries, request);
+      setScheduleEntries(nextScheduleEntries);
+      saveStoredSchedule(nextScheduleEntries);
+    }
+
+    const nextRequests = giveawayRequests.map((entry) =>
+      entry.id !== requestId
+        ? entry
+        : {
+            ...entry,
+            status,
+            reviewedAt: new Date().toISOString(),
+            reviewedBy: "Manager / Admin",
+          },
+    );
+
+    setGiveawayRequests(nextRequests);
+    saveStoredShiftGiveawayRequests(nextRequests);
+  }
 
   return (
     <>
@@ -66,31 +198,35 @@ export default function AdminOverviewPage() {
       </header>
 
       <div className="admin-content">
-        {/* ── Stat Row ── */}
         <div className="stat-row">
           <div className="stat-card">
             <p className="stat-label">Pending Requests</p>
-            <p className="stat-value muted">0</p>
-            <p className="stat-meta">No requests awaiting review</p>
+            <p className={`stat-value ${pendingGiveawayRequests.length > 0 ? "alert" : "muted"}`}>
+              {pendingGiveawayRequests.length}
+            </p>
+            <p className="stat-meta">
+              {pendingGiveawayRequests.length > 0
+                ? "Shift giveaway requests awaiting review"
+                : "No requests awaiting review"}
+            </p>
           </div>
           <div className="stat-card">
-            <p className="stat-label">This Week&rsquo;s Schedule</p>
+            <p className="stat-label">This Week&apos;s Schedule</p>
             <p className="stat-value warn">Draft</p>
             <p className="stat-meta">Not yet published</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-label">Attendance 24h</p>
+            <p className="stat-value ok">{attendanceSummary.total}</p>
+            <p className="stat-meta">Attendance reports in the last 24 hours</p>
           </div>
           <div className="stat-card">
             <p className="stat-label">Active Employees</p>
             <p className="stat-value muted">0</p>
             <p className="stat-meta">No records imported yet</p>
           </div>
-          <div className="stat-card">
-            <p className="stat-label">Import Issues</p>
-            <p className="stat-value ok">0</p>
-            <p className="stat-meta">No unmatched names</p>
-          </div>
         </div>
 
-        {/* ── Setup Notice ── */}
         <div className="notice-card info" style={{ marginBottom: 22 }}>
           <CircleAlert size={16} aria-hidden="true" />
           <div>
@@ -102,7 +238,6 @@ export default function AdminOverviewPage() {
           </div>
         </div>
 
-        {/* ── Quick Actions ── */}
         <div className="page-section">
           <div className="page-section-header">
             <div>
@@ -123,105 +258,185 @@ export default function AdminOverviewPage() {
           </div>
         </div>
 
-        {/* ── Two-column grid ── */}
         <div className="admin-grid">
-          {/* Pending Requests */}
           <div className="admin-card">
             <div className="admin-card-header">
               <div>
                 <p className="admin-card-title">Pending Requests</p>
-                <p className="admin-card-subtitle">Time-off requests awaiting decision</p>
+                <p className="admin-card-subtitle">Shift giveaway requests awaiting decision</p>
               </div>
               <Link href="/admin/requests" className="secondary-button" style={{ fontSize: "var(--text-sm-plus)" }}>
-                View all
+                View All
               </Link>
             </div>
             <div className="admin-card-body">
-              <div
-                className="empty-state"
-                style={{ textAlign: "center", padding: "28px 16px" }}
-              >
-                <p className="mini-title" style={{ marginBottom: 6 }}>
-                  No pending requests
-                </p>
-                <p className="mini-copy">
-                  When dealers submit time-off requests they will appear here for review.
-                </p>
-              </div>
+              {pendingGiveawayRequests.length === 0 ? (
+                <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
+                  <p className="mini-title" style={{ marginBottom: 6 }}>
+                    No pending requests
+                  </p>
+                  <p className="mini-copy">
+                    Shift giveaway requests will appear here for review.
+                  </p>
+                </div>
+              ) : (
+                <div className="admin-giveaway-list">
+                  {pendingGiveawayRequests.map((request) => (
+                    <div key={request.id} className="admin-giveaway-item">
+                      <div className="admin-giveaway-item-top">
+                        <div>
+                          <p className="admin-giveaway-title">
+                            {request.requesterName} → {request.targetDealerName}
+                          </p>
+                          <p className="admin-giveaway-meta">
+                            {SHIFT_REQUEST_KIND_LABELS[request.requestKind]} · {request.shiftDayLabel} · {request.requesterShiftTime}
+                          </p>
+                        </div>
+                        <span className="badge warning">Pending</span>
+                      </div>
+                      <p className="admin-giveaway-copy">
+                        {request.requestKind === "switch" ? "Requested switch: " : "Target dealer: "}
+                        {request.targetDealerStatus === "off" ? "Off that day" : request.targetDealerShiftTime}
+                      </p>
+                      {request.validationSnapshot.restHoursBeforeShift !== null ? (
+                        <p className="admin-giveaway-copy">
+                          Rest before shift: {request.validationSnapshot.restHoursBeforeShift} hours
+                        </p>
+                      ) : null}
+                      {request.validationSnapshot.targetDealerAlreadyAtSixDays ? (
+                        <div className="notice-card danger">
+                          <CircleAlert size={14} aria-hidden="true" />
+                          <div>
+                            <p className="notice-title">Red flag</p>
+                            <p className="notice-body">
+                              {request.targetDealerName} is already scheduled for six days this week.
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {request.note ? (
+                        <p className="admin-giveaway-note">{request.note}</p>
+                      ) : null}
+                      <div className="admin-giveaway-actions">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => updateGiveawayRequest(request.id, "denied")}
+                        >
+                          Deny
+                        </button>
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => updateGiveawayRequest(request.id, "approved")}
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Schedule Status */}
           <div className="admin-card">
             <div className="admin-card-header">
               <div>
-                <p className="admin-card-title">Schedule Status</p>
-                <p className="admin-card-subtitle">Current and upcoming week readiness</p>
+                <p className="admin-card-title">Attendance 24-Hour Report</p>
+                <p className="admin-card-subtitle">Call outs, reverse PSL, and leave-early changes in the last 24 hours</p>
               </div>
-              <Link
-                href="/admin/schedule-manager"
-                className="secondary-button"
-                style={{ fontSize: "var(--text-sm-plus)" }}
-              >
-                Manage
+              <Link href="/admin/audit-log" className="secondary-button" style={{ fontSize: "var(--text-sm-plus)" }}>
+                Daily Log
               </Link>
             </div>
             <div className="admin-card-body">
               <div className="data-list">
                 <div className="data-row">
                   <div className="data-row-main">
-                    <p className="data-row-title">This week</p>
-                    <p className="data-row-sub">No schedule imported yet</p>
+                    <p className="data-row-title">Call Outs</p>
+                    <p className="data-row-sub">1 point and PSL call outs combined</p>
                   </div>
                   <div className="data-row-right">
-                    <span className="badge warning">No data</span>
+                    <span className="badge warning">{attendanceSummary.callOuts}</span>
                   </div>
                 </div>
                 <div className="data-row">
                   <div className="data-row-main">
-                    <p className="data-row-title">Next week</p>
-                    <p className="data-row-sub">No schedule imported yet</p>
+                    <p className="data-row-title">Reverse PSL</p>
+                    <p className="data-row-sub">Delayed starts reported by employees</p>
                   </div>
                   <div className="data-row-right">
-                    <span className="badge warning">No data</span>
+                    <span className="badge gold">{attendanceSummary.reversePsl}</span>
                   </div>
                 </div>
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <Link href="/admin/schedule-import" className="primary-button" style={{ fontSize: "var(--text-md)" }}>
-                  Import a schedule
-                </Link>
+                <div className="data-row">
+                  <div className="data-row-main">
+                    <p className="data-row-title">Leave Early</p>
+                    <p className="data-row-sub">Half points and PSL leave-early reports</p>
+                  </div>
+                  <div className="data-row-right">
+                    <span className="badge warning">{attendanceSummary.leaveEarly}</span>
+                  </div>
+                </div>
+                <div className="data-row">
+                  <div className="data-row-main">
+                    <p className="data-row-title">PSL Hours</p>
+                    <p className="data-row-sub">Total PSL hours reported in the last 24 hours</p>
+                  </div>
+                  <div className="data-row-right">
+                    <span className="badge success">{attendanceSummary.pslHours}h</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Recent Activity — full width */}
-          <div className="admin-card full">
+          <div className="admin-card">
             <div className="admin-card-header">
               <div>
-                <p className="admin-card-title">Recent Activity</p>
-                <p className="admin-card-subtitle">Latest audit trail entries across the system</p>
+                <p className="admin-card-title">Schedule Changes</p>
+                <p className="admin-card-subtitle">Floor overrides added to the weekly schedule</p>
               </div>
-              <Link
-                href="/admin/audit-log"
-                className="secondary-button"
-                style={{ fontSize: "var(--text-sm-plus)" }}
-              >
-                Full log
-              </Link>
             </div>
             <div className="admin-card-body">
-              <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
-                <p className="mini-title" style={{ marginBottom: 6 }}>
-                  No activity recorded yet
-                </p>
-                <p className="mini-copy">
-                  Schedule imports, publish events, request decisions, and attendance changes will
-                  appear here once the system is in use.
-                </p>
-              </div>
+              {recentScheduleOverrides.length === 0 ? (
+                <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
+                  <p className="mini-title" style={{ marginBottom: 6 }}>
+                    No schedule changes yet
+                  </p>
+                  <p className="mini-copy">
+                    Start-time changes and added dealers will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="admin-giveaway-list">
+                  {recentScheduleOverrides.map((override) => (
+                    <div key={override.id} className="admin-giveaway-item">
+                      <div className="admin-giveaway-item-top">
+                        <div>
+                          <p className="admin-giveaway-title">{override.employeeName}</p>
+                          <p className="admin-giveaway-meta">
+                            {SCHEDULE_OVERRIDE_KIND_LABELS[override.kind]} · {override.shiftDate}
+                          </p>
+                        </div>
+                        {override.flaggedSixDay ? (
+                          <span className="badge danger">Red Flag</span>
+                        ) : null}
+                      </div>
+                      <p className="admin-giveaway-copy">
+                        {override.previousShiftTime} → {override.nextShiftTime}
+                      </p>
+                      {override.note ? (
+                        <p className="admin-giveaway-note">{override.note}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
         </div>
       </div>
     </>

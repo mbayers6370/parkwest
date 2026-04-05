@@ -7,10 +7,10 @@ import {
   CalendarDays,
   House,
   Repeat,
-  type LucideIcon,
   UserRound,
   ClipboardList,
 } from "lucide-react";
+import styles from "./personal-nav.module.css";
 
 const ICONS = {
   home: House,
@@ -101,12 +101,12 @@ export function PersonalNav({ showWorkspaceSwitcher = true }: PersonalNavProps) 
       </nav>
 
       {/* ── Mobile Bottom Nav ── */}
-      <nav className="personal-bottom-nav" aria-label="Mobile navigation">
+      <nav className={styles.personalBottomNav} aria-label="Mobile navigation">
         {BOTTOM_TABS.map((tab) => (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`personal-bottom-tab${isActive(tab.href, tab.exact) ? " active" : ""}`}
+            className={`${styles.personalBottomTab} ${isActive(tab.href, tab.exact) ? styles.personalBottomTabActive : ""}`}
           >
             <tab.icon size={20} aria-hidden="true" />
             <span>{tab.label}</span>

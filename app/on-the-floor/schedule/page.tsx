@@ -1,107 +1,364 @@
-import { CircleAlert } from "lucide-react";
+"use client";
 
-const DEPT_SCHEDULE = [
-  { name: "Susan Tran", mon: "2–10p", tue: "2–10p", wed: "OFF", thu: "2–10p", fri: "2–10p", sat: "OFF", sun: "OFF" },
-  { name: "Marcus Webb", mon: "OFF", tue: "10a–6p", wed: "10a–6p", thu: "10a–6p", fri: "OFF", sat: "2–10p", sun: "2–10p" },
-  { name: "Priya Nair", mon: "2–10p", tue: "OFF", wed: "2–10p", thu: "2–10p", fri: "OFF", sat: "10a–6p", sun: "10a–6p" },
-  { name: "Carlos Ruiz", mon: "4p–12a", tue: "4p–12a", wed: "OFF", thu: "4p–12a", fri: "4p–12a", sat: "OFF", sun: "OFF" },
-  { name: "Linda Ho", mon: "OFF", tue: "2–10p", wed: "2–10p", thu: "OFF", fri: "10a–6p", sat: "10a–6p", sun: "OFF" },
+import { useState } from "react";
+import styles from "./schedule.module.css";
+
+const AVAILABLE_WEEKS = ["Apr 4 - 10", "Apr 11 - 17", "Apr 18 - 24"];
+const DEPARTMENTS = ["dealer", "floor", "chip_runner"] as const;
+
+const DAYS = [
+  { key: "sat", label: "Saturday", shortDate: "Apr 4" },
+  { key: "sun", label: "Sunday", shortDate: "Apr 5" },
+  { key: "mon", label: "Monday", shortDate: "Apr 6" },
+  { key: "tue", label: "Tuesday", shortDate: "Apr 7" },
+  { key: "wed", label: "Wednesday", shortDate: "Apr 8" },
+  { key: "thu", label: "Thursday", shortDate: "Apr 9" },
+  { key: "fri", label: "Friday", shortDate: "Apr 10" },
+] as const;
+
+type DayKey = (typeof DAYS)[number]["key"];
+
+type ShiftTone =
+  | "pink"
+  | "blue"
+  | "orange"
+  | "lavender"
+  | "sky"
+  | "green"
+  | "amber"
+  | "coral"
+  | "red";
+
+type ShiftValue = {
+  label: string;
+  tone: ShiftTone;
+};
+
+type ScheduleRow = {
+  name: string;
+} & Record<DayKey, ShiftValue | "OFF" | "RO">;
+
+type ScheduleBoard = {
+  id: (typeof DEPARTMENTS)[number];
+  title: string;
+  rows: ScheduleRow[];
+};
+
+const SHIFT_STYLES: Record<string, ShiftValue> = {
+  "7:45a": { label: "7:45a", tone: "pink" },
+  "9:45a": { label: "9:45a", tone: "blue" },
+  "11:45a": { label: "11:45a", tone: "orange" },
+  "1:45p": { label: "1:45p", tone: "lavender" },
+  "3:45p": { label: "3:45p", tone: "sky" },
+  "5:45p": { label: "5:45p", tone: "green" },
+  "7:45p": { label: "7:45p", tone: "amber" },
+  "9:45p": { label: "9:45p", tone: "coral" },
+  "11:45p": { label: "11:45p", tone: "red" },
+};
+
+const SHIFT_TONE_CLASS: Record<ShiftTone, string> = {
+  pink: styles.floorScheduleShiftChipPink,
+  blue: styles.floorScheduleShiftChipBlue,
+  orange: styles.floorScheduleShiftChipOrange,
+  lavender: styles.floorScheduleShiftChipLavender,
+  sky: styles.floorScheduleShiftChipSky,
+  green: styles.floorScheduleShiftChipGreen,
+  amber: styles.floorScheduleShiftChipAmber,
+  coral: styles.floorScheduleShiftChipCoral,
+  red: styles.floorScheduleShiftChipRed,
+};
+
+const DEALER_SCHEDULE: ScheduleRow[] = [
+  {
+    name: "Susan Tran",
+    sat: "OFF",
+    sun: SHIFT_STYLES["7:45p"],
+    mon: SHIFT_STYLES["7:45p"],
+    tue: SHIFT_STYLES["7:45p"],
+    wed: SHIFT_STYLES["7:45p"],
+    thu: SHIFT_STYLES["7:45p"],
+    fri: SHIFT_STYLES["7:45p"],
+  },
+  {
+    name: "Marcus Webb",
+    sat: "OFF",
+    sun: "OFF",
+    mon: SHIFT_STYLES["1:45p"],
+    tue: SHIFT_STYLES["1:45p"],
+    wed: SHIFT_STYLES["1:45p"],
+    thu: "OFF",
+    fri: SHIFT_STYLES["3:45p"],
+  },
+  {
+    name: "Priya Nair",
+    sat: SHIFT_STYLES["9:45a"],
+    sun: SHIFT_STYLES["3:45p"],
+    mon: SHIFT_STYLES["3:45p"],
+    tue: "OFF",
+    wed: SHIFT_STYLES["11:45a"],
+    thu: SHIFT_STYLES["11:45a"],
+    fri: SHIFT_STYLES["3:45p"],
+  },
+  {
+    name: "Carlos Ruiz",
+    sat: SHIFT_STYLES["5:45p"],
+    sun: "OFF",
+    mon: SHIFT_STYLES["9:45p"],
+    tue: SHIFT_STYLES["9:45p"],
+    wed: "OFF",
+    thu: SHIFT_STYLES["9:45p"],
+    fri: "OFF",
+  },
+  {
+    name: "Linda Ho",
+    sat: "OFF",
+    sun: "OFF",
+    mon: "OFF",
+    tue: "OFF",
+    wed: SHIFT_STYLES["11:45p"],
+    thu: SHIFT_STYLES["11:45p"],
+    fri: SHIFT_STYLES["11:45p"],
+  },
+  {
+    name: "Matt Bayers",
+    sat: SHIFT_STYLES["7:45p"],
+    sun: SHIFT_STYLES["3:45p"],
+    mon: "OFF",
+    tue: SHIFT_STYLES["9:45a"],
+    wed: SHIFT_STYLES["11:45a"],
+    thu: SHIFT_STYLES["9:45p"],
+    fri: SHIFT_STYLES["11:45p"],
+  },
+  {
+    name: "Jia Park",
+    sat: SHIFT_STYLES["9:45p"],
+    sun: "OFF",
+    mon: SHIFT_STYLES["5:45p"],
+    tue: "OFF",
+    wed: "OFF",
+    thu: SHIFT_STYLES["11:45a"],
+    fri: SHIFT_STYLES["3:45p"],
+  },
+  {
+    name: "Thomas Lee",
+    sat: "OFF",
+    sun: SHIFT_STYLES["3:45p"],
+    mon: SHIFT_STYLES["5:45p"],
+    tue: SHIFT_STYLES["11:45a"],
+    wed: SHIFT_STYLES["11:45a"],
+    thu: SHIFT_STYLES["11:45a"],
+    fri: "OFF",
+  },
+  {
+    name: "Fanny Duong",
+    sat: SHIFT_STYLES["3:45p"],
+    sun: SHIFT_STYLES["3:45p"],
+    mon: "OFF",
+    tue: "OFF",
+    wed: SHIFT_STYLES["11:45p"],
+    thu: SHIFT_STYLES["11:45p"],
+    fri: SHIFT_STYLES["11:45p"],
+  },
 ];
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const FLOOR_SCHEDULE: ScheduleRow[] = [
+  {
+    name: "Brian Cole",
+    sat: SHIFT_STYLES["3:45p"],
+    sun: "OFF",
+    mon: SHIFT_STYLES["11:45a"],
+    tue: SHIFT_STYLES["11:45a"],
+    wed: "OFF",
+    thu: SHIFT_STYLES["11:45a"],
+    fri: SHIFT_STYLES["11:45a"],
+  },
+  {
+    name: "Angela Fox",
+    sat: "OFF",
+    sun: SHIFT_STYLES["5:45p"],
+    mon: SHIFT_STYLES["5:45p"],
+    tue: "OFF",
+    wed: SHIFT_STYLES["5:45p"],
+    thu: SHIFT_STYLES["5:45p"],
+    fri: "OFF",
+  },
+  {
+    name: "Rico James",
+    sat: SHIFT_STYLES["1:45p"],
+    sun: SHIFT_STYLES["1:45p"],
+    mon: "OFF",
+    tue: SHIFT_STYLES["3:45p"],
+    wed: SHIFT_STYLES["3:45p"],
+    thu: "OFF",
+    fri: SHIFT_STYLES["3:45p"],
+  },
+  {
+    name: "Mina Ortiz",
+    sat: "OFF",
+    sun: "OFF",
+    mon: SHIFT_STYLES["9:45a"],
+    tue: SHIFT_STYLES["9:45a"],
+    wed: SHIFT_STYLES["9:45a"],
+    thu: "OFF",
+    fri: SHIFT_STYLES["9:45a"],
+  },
+];
 
-function ShiftCell({ value }: { value: string }) {
-  const isOff = value === "OFF";
+const CHIP_RUNNER_SCHEDULE: ScheduleRow[] = [
+  {
+    name: "Johnny Pham",
+    sat: SHIFT_STYLES["7:45a"],
+    sun: "OFF",
+    mon: SHIFT_STYLES["7:45a"],
+    tue: SHIFT_STYLES["7:45a"],
+    wed: "OFF",
+    thu: SHIFT_STYLES["7:45a"],
+    fri: SHIFT_STYLES["7:45a"],
+  },
+  {
+    name: "Tola Green",
+    sat: "OFF",
+    sun: SHIFT_STYLES["1:45p"],
+    mon: "OFF",
+    tue: SHIFT_STYLES["1:45p"],
+    wed: SHIFT_STYLES["1:45p"],
+    thu: SHIFT_STYLES["1:45p"],
+    fri: "OFF",
+  },
+  {
+    name: "Linda S",
+    sat: SHIFT_STYLES["5:45p"],
+    sun: SHIFT_STYLES["5:45p"],
+    mon: "OFF",
+    tue: "OFF",
+    wed: SHIFT_STYLES["5:45p"],
+    thu: SHIFT_STYLES["5:45p"],
+    fri: SHIFT_STYLES["5:45p"],
+  },
+  {
+    name: "Eric Wu",
+    sat: "OFF",
+    sun: "OFF",
+    mon: SHIFT_STYLES["9:45p"],
+    tue: SHIFT_STYLES["9:45p"],
+    wed: SHIFT_STYLES["9:45p"],
+    thu: "OFF",
+    fri: SHIFT_STYLES["9:45p"],
+  },
+];
+
+const SCHEDULE_BOARDS: ScheduleBoard[] = [
+  { id: "dealer", title: "Dealers Schedule Board", rows: DEALER_SCHEDULE },
+  { id: "floor", title: "Floor Schedule Board", rows: FLOOR_SCHEDULE },
+  { id: "chip_runner", title: "Chip Runners Schedule Board", rows: CHIP_RUNNER_SCHEDULE },
+];
+
+function ScheduleCell({ value }: { value: ScheduleRow[DayKey] }) {
+  if (value === "OFF" || value === "RO") {
+    return (
+      <td className={`${styles.floorScheduleGridCell} ${styles.floorScheduleGridCellOff}`}>
+        <span className={styles.floorScheduleOffText}>{value}</span>
+      </td>
+    );
+  }
+
   return (
-    <td
-      style={{
-        padding: "10px 8px",
-        borderBottom: "1px solid color-mix(in srgb, var(--charcoal-500) 15%, var(--ivory-100))",
-        fontSize: "var(--text-sm-plus)",
-        fontWeight: isOff ? 600 : 700,
-        color: isOff ? "var(--foreground-muted)" : "var(--foreground)",
-        textAlign: "center",
-        background: isOff ? "transparent" : "color-mix(in srgb, var(--gold) 4%, transparent)",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {value}
+    <td className={styles.floorScheduleGridCell}>
+      <span className={`${styles.floorScheduleShiftChip} ${SHIFT_TONE_CLASS[value.tone]}`}>
+        {value.label}
+      </span>
     </td>
   );
 }
 
 export default function FloorSchedulePage() {
+  const [selectedDepartment, setSelectedDepartment] =
+    useState<(typeof DEPARTMENTS)[number]>("dealer");
+  const selectedBoard =
+    SCHEDULE_BOARDS.find((board) => board.id === selectedDepartment) ?? SCHEDULE_BOARDS[0];
+
   return (
     <>
-      <div className="floor-control-bar">
-        <div className="floor-filter-row">
-          <span className="floor-filter-label">Week</span>
-          <button className="floor-pill active" type="button">Apr 7 – 13</button>
+      <div className={styles.floorControlBar}>
+        <div className={styles.floorFilterRow}>
+          <span className={styles.floorFilterLabel}>Week</span>
+          {AVAILABLE_WEEKS.map((week, index) => (
+            <button
+              key={week}
+              className={`${styles.floorPill} ${index === 0 ? styles.floorPillActive : ""}`}
+              type="button"
+            >
+              {week}
+            </button>
+          ))}
         </div>
-        <div className="floor-filter-row">
-          <span className="floor-filter-label">Dept</span>
-          <button className="floor-pill active" type="button">Dealers</button>
-          <button className="floor-pill" type="button">Floor</button>
-          <button className="floor-pill" type="button">All</button>
+        <div className={styles.floorFilterRow}>
+          <span className={styles.floorFilterLabel}>Dept</span>
+          <button
+            className={`${styles.floorPill} ${selectedDepartment === "dealer" ? styles.floorPillActive : ""}`}
+            type="button"
+            onClick={() => setSelectedDepartment("dealer")}
+          >
+            Dealers
+          </button>
+          <button
+            className={`${styles.floorPill} ${selectedDepartment === "floor" ? styles.floorPillActive : ""}`}
+            type="button"
+            onClick={() => setSelectedDepartment("floor")}
+          >
+            Floor
+          </button>
+          <button
+            className={`${styles.floorPill} ${selectedDepartment === "chip_runner" ? styles.floorPillActive : ""}`}
+            type="button"
+            onClick={() => setSelectedDepartment("chip_runner")}
+          >
+            Chip Runners
+          </button>
         </div>
       </div>
 
-      <main className="floor-content">
-
-        {/* Mobile: day cards */}
-        <div className="floor-main-col">
-
-          {/* Desktop table — shown as a floor section */}
-          <div className="floor-section">
-            <div className="floor-section-header">
+      <main className={styles.floorContent}>
+        <div className={`${styles.floorMainCol} ${styles.floorSchedulePageMain}`}>
+          <div className={`${styles.floorSection} ${styles.floorScheduleSheet}`}>
+            <div className={styles.floorSectionHeader}>
               <div>
-                <p className="floor-section-title">Dealers · Week of Apr 7</p>
-                <p className="floor-section-subtitle">Published schedule — tap a name to see attendance state</p>
+                <p className={styles.floorSectionTitle}>{selectedBoard.title}</p>
               </div>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: "10px 12px", textAlign: "left", fontSize: "var(--text-sm)", fontWeight: 800, color: "var(--foreground-muted)", borderBottom: "1px solid var(--border)" }}>
-                      Name
-                    </th>
-                    {DAYS.map((d) => (
-                      <th key={d} style={{ padding: "10px 8px", textAlign: "center", fontSize: "var(--text-sm)", fontWeight: 800, color: "var(--foreground-muted)", borderBottom: "1px solid var(--border)" }}>
-                        {d}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {DEPT_SCHEDULE.map((row) => (
-                    <tr key={row.name}>
-                      <td style={{ padding: "10px 12px", fontSize: "var(--text-md)", fontWeight: 700, borderBottom: "1px solid color-mix(in srgb, var(--charcoal-500) 15%, var(--ivory-100))", whiteSpace: "nowrap" }}>
-                        {row.name}
-                      </td>
-                      <ShiftCell value={row.mon} />
-                      <ShiftCell value={row.tue} />
-                      <ShiftCell value={row.wed} />
-                      <ShiftCell value={row.thu} />
-                      <ShiftCell value={row.fri} />
-                      <ShiftCell value={row.sat} />
-                      <ShiftCell value={row.sun} />
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
 
-          <div className="notice-card info">
-            <CircleAlert size={15} aria-hidden="true" />
-            <div>
-              <p className="notice-title">This is the published schedule baseline</p>
-              <p className="notice-body">Live attendance changes are tracked separately on the Now screen. The schedule here is never overwritten.</p>
+            <div className={styles.floorScheduleSheetBody}>
+              <div className={styles.floorScheduleMatrixWrap}>
+                <table className={styles.floorScheduleMatrix}>
+                  <thead>
+                    <tr>
+                      <th className={styles.floorScheduleNameHead}>Name</th>
+                      {DAYS.map((day) => (
+                        <th key={day.key} className={styles.floorScheduleDayHead}>
+                          <span className={styles.floorScheduleDayLabel}>{day.label}</span>
+                          <span className={styles.floorScheduleDayDate}>{day.shortDate}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedBoard.rows.map((row) => (
+                      <tr key={`${selectedBoard.title}-${row.name}`}>
+                        <th className={styles.floorScheduleNameCell}>{row.name}</th>
+                        {DAYS.map((day) => (
+                          <ScheduleCell
+                            key={`${selectedBoard.title}-${row.name}-${day.key}`}
+                            value={row[day.key]}
+                          />
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
-
       </main>
     </>
   );

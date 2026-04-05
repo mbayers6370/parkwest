@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Clock3,
 } from "lucide-react";
+import styles from "@/app/on-the-floor/floor.module.css";
 
 const ICONS = {
   now: Clock3,
@@ -18,17 +19,19 @@ const ICONS = {
 const BOTTOM_TABS = [
   { href: "/on-the-floor", label: "Now", icon: ICONS.now, exact: true },
   { href: "/on-the-floor/schedule", label: "Schedule", icon: ICONS.schedule },
-  { href: "/on-the-floor/log", label: "Log", icon: ICONS.log },
+  { href: "/on-the-floor/log", label: "Attendance", icon: ICONS.log },
 ];
 
 const DESKTOP_TABS = [
   { href: "/on-the-floor", label: "Now", exact: true },
   { href: "/on-the-floor/schedule", label: "Schedule" },
-  { href: "/on-the-floor/log", label: "Change Log" },
+  { href: "/on-the-floor/log", label: "Attendance" },
 ];
 
 export function FloorNav() {
   const pathname = usePathname() ?? "";
+  const cx = (...classes: Array<string | false | undefined>) =>
+    classes.filter(Boolean).join(" ");
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -76,12 +79,15 @@ export function FloorNav() {
       </nav>
 
       {/* ── Mobile Bottom Nav ── */}
-      <nav className="floor-bottom-nav" aria-label="Mobile navigation">
+      <nav className={styles.floorBottomNav} aria-label="Mobile navigation">
         {BOTTOM_TABS.map((tab) => (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`floor-bottom-tab${isActive(tab.href, tab.exact) ? " active" : ""}`}
+            className={cx(
+              styles.floorBottomTab,
+              isActive(tab.href, tab.exact) && styles.floorBottomTabActive,
+            )}
           >
             <tab.icon size={20} aria-hidden="true" />
             <span>{tab.label}</span>

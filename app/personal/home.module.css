@@ -1,0 +1,332 @@
+.nextShiftCardRow {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.nextShiftCard {
+  --next-shift-pad-y: 28px;
+  --next-shift-pad-x: 28px;
+  width: min(100%, 620px);
+  padding: var(--next-shift-pad-y) var(--next-shift-pad-x);
+  border-radius: var(--radius-lg);
+  background: var(--charcoal-900);
+  color: var(--ivory-100);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--charcoal-900) 22%, transparent);
+  position: relative;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.nextShiftKicker {
+  margin: 0 0 var(--gap-card-tight);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--gold-light) 90%, transparent);
+}
+
+.welcomeCardTitle {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-hero-personal);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.shiftBadge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.roleBadge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: color-mix(in srgb, var(--ivory-100) 8%, transparent);
+  color: var(--ivory-100);
+  border: 1px solid color-mix(in srgb, var(--gold) 26%, transparent);
+}
+
+.nextShiftFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-card-tight);
+  flex-wrap: wrap;
+  margin-top: var(--gap-card);
+}
+
+.welcomeDetailBlock {
+  min-width: 140px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ivory-100) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ivory-100) 8%, transparent);
+}
+
+.welcomeDetailBlockWide {
+  width: 100%;
+}
+
+.welcomeDetailLabel {
+  margin: 0 0 6px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--gold-light) 88%, transparent);
+}
+
+.welcomeDetailValue {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--ivory-100);
+  line-height: 1.4;
+}
+
+.welcomeDetailSubvalue {
+  margin: 4px 0 0;
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ivory-100) 78%, transparent);
+}
+
+.attendanceReportRow {
+  margin-top: var(--gap-card);
+}
+
+.attendanceReportActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.attendanceReportButton {
+  width: 100%;
+  min-height: 46px;
+}
+
+.attendanceReportHelper {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: color-mix(in srgb, var(--ivory-100) 76%, transparent);
+}
+
+.attendanceStatusNotice {
+  margin-top: 0;
+  justify-content: center;
+  text-align: left;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap-card);
+}
+
+.scheduleOverviewStrip {
+  padding: 4px 0 0;
+}
+
+.weekStrip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.dayCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 2px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.hasShift {
+  background: color-mix(in srgb, var(--ivory-100) 88%, var(--gold-light) 12%);
+  border-color: var(--border);
+}
+
+.today {
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
+}
+
+.offDay {
+  background: transparent;
+}
+
+.dayName {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--foreground-muted);
+}
+
+.dayNum {
+  font-size: var(--text-md);
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.dayCell.today .dayName,
+.dayCell.today .dayNum {
+  color: var(--gold-dark);
+}
+
+.dayShiftLabel {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--foreground-muted);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.attendanceOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-scrim);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.attendanceModal {
+  width: min(640px, 100%);
+  max-height: min(88vh, 860px);
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--overlay-shadow-soft), var(--overlay-shadow-strong);
+}
+
+.attendanceModalHeader {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.attendanceModalTitle {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 800;
+}
+
+.attendanceModalSubtitle {
+  margin: 6px 0 0;
+  font-size: var(--text-sm-plus);
+  color: var(--foreground-muted);
+}
+
+.attendanceModalClose {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--foreground);
+}
+
+.attendanceModalBody {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.attendanceModalFooter {
+  padding: 18px 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 899px) {
+  .scheduleOverviewStrip {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+    padding-top: 2px;
+  }
+
+  .weekStrip {
+    gap: 8px;
+  }
+
+  .dayCell {
+    padding: 12px 4px;
+  }
+}
+
+@media (min-width: 900px) {
+  .nextShiftCard {
+    --next-shift-pad-y: 22px;
+    text-align: center;
+  }
+
+  .roleBadge {
+    position: absolute;
+    top: var(--next-shift-pad-y);
+    right: var(--next-shift-pad-x);
+  }
+
+  .welcomeCardHeader {
+    justify-content: center;
+    padding-right: 84px;
+  }
+
+  .nextShiftKicker,
+  .welcomeCardTitle,
+  .welcomeDetailLabel,
+  .welcomeDetailValue,
+  .welcomeDetailSubvalue {
+    text-align: center;
+  }
+
+  .nextShiftFooter {
+    justify-content: center;
+  }
+
+  .welcomeDetailBlockWide {
+    max-width: 520px;
+  }
+
+  .attendanceReportRow {
+    display: flex;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .attendanceReportActions {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .attendanceStatusNotice {
+    max-width: 520px;
+  }
+
+  .scheduleOverviewStrip {
+    padding: 0;
+  }
+}
