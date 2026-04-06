@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowRight,
+  Building2,
   CalendarDays,
   ClipboardList,
   FileClock,
@@ -27,6 +28,7 @@ const ICONS = {
   scheduleManager: CalendarDays,
   rules: SlidersHorizontal,
   auditLog: FileClock,
+  support: Building2,
   personal: UserRound,
   floor: PanelsTopLeft,
   arrowRight: ArrowRight,
@@ -101,6 +103,10 @@ export function AdminNav() {
 
         <div className="admin-sidebar-footer">
           <p className="admin-nav-section-label">Switch Workspace</p>
+          <Link href="/support" className="admin-workspace-link">
+            <ICONS.support size={14} aria-hidden="true" />
+            Support
+          </Link>
           <Link href="/personal" className="admin-workspace-link">
             <ICONS.personal size={14} aria-hidden="true" />
             Personal
@@ -126,6 +132,9 @@ export function AdminNav() {
           <p className="admin-mobile-kicker">Manager / Admin</p>
         </div>
         <div className="admin-mobile-ws-links">
+          <Link href="/support" className="admin-mobile-ws-link">
+            Support
+          </Link>
           <Link href="/personal" className="admin-mobile-ws-link">
             Personal
           </Link>

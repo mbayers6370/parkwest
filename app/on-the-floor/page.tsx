@@ -121,20 +121,47 @@ function getCurrentTimeMinutes(now: Date): number {
   return hour < 6 ? hourMinutes + 24 * 60 : hourMinutes;
 }
 
-function getOperatingDate(now: Date) {
-  if (now.getHours() >= 6) {
-    return now;
+// Casino closes Sun & Mon at 2 AM, reopens at 10:30 AM.
+// All other days the operating day rolls at 6 AM.
+const CLOSE_MINUTES = 2 * 60;       // 2:00 AM
+const REOPEN_MINUTES = 10 * 60 + 30; // 10:30 AM
+const ROLLOVER_MINUTES = 6 * 60;     // 6:00 AM (normal days)
+
+function getOperatingDay(now: Date): { date: Date; isClosed: boolean } {
+  const dow = now.getDay(); // 0 = Sun, 1 = Mon
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+
+  function prevDay(d: Date) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1,
+      d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
   }
 
-  return new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() - 1,
-    now.getHours(),
-    now.getMinutes(),
-    now.getSeconds(),
-    now.getMilliseconds(),
-  );
+  // Sunday 12:00 AM–2:00 AM → still Saturday
+  if (dow === 0 && totalMinutes < CLOSE_MINUTES) {
+    return { date: prevDay(now), isClosed: false };
+  }
+  // Sunday 2:00 AM–10:30 AM → closed
+  if (dow === 0 && totalMinutes < REOPEN_MINUTES) {
+    return { date: now, isClosed: true };
+  }
+  // Monday 12:00 AM–2:00 AM → still Sunday
+  if (dow === 1 && totalMinutes < CLOSE_MINUTES) {
+    return { date: prevDay(now), isClosed: false };
+  }
+  // Monday 2:00 AM–10:30 AM → closed
+  if (dow === 1 && totalMinutes < REOPEN_MINUTES) {
+    return { date: now, isClosed: true };
+  }
+  // Normal days before 6 AM → previous day
+  if (totalMinutes < ROLLOVER_MINUTES) {
+    return { date: prevDay(now), isClosed: false };
+  }
+  return { date: now, isClosed: false };
+}
+
+// Keep old name for compatibility with existing call sites
+function getOperatingDate(now: Date) {
+  return getOperatingDay(now).date;
 }
 
 function getShiftStartMinutes(hour: number): number {
@@ -393,7 +420,7 @@ export default function OnTheFloorNowPage() {
       window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
     };
   }, []);
-  const operatingDate = getOperatingDate(now);
+  const { date: operatingDate, isClosed } = getOperatingDay(now);
   const dow       = operatingDate.getDay();
   const isSunday  = dow === 0;
   const dayLabel  = DAY_NAMES[dow];
@@ -816,6 +843,101 @@ export default function OnTheFloorNowPage() {
     window.setTimeout(() => setScheduleChangeMessage(""), 4000);
   }
 
+  const shiftListContent = isClosed ? (
+    <div className={styles.casinoClosed}>
+      <p className={styles.casinoClosedTitle}>Casino closed</p>
+      <p className={styles.casinoClosedSub}>Opens at 10:30 AM</p>
+    </div>
+  ) : (
+    <div className={styles.floorShiftList}>
+      {slots.map((slot, si) => {
+        const shiftStartMinutes = getShiftStartMinutes(slot.hour);
+        const isPast    = shiftStartMinutes <= currentMinutes;
+        const isCurrent = si === currentIdx;
+        const isExpanded = expanded === si;
+        const shiftLate = slot.dealers.filter((d) => d.status === "late").length;
+        const shiftOut  = slot.dealers.filter((d) => d.status === "absent" || d.status === "callout").length;
+        const eligible  = slot.dealers.filter((d) => d.status === "unset" || d.status === "late").length;
+        return (
+          <div
+            key={slot.label}
+            className={cx(
+              styles.shiftSlotCard,
+              isCurrent && styles.shiftCurrent,
+              isPast && styles.shiftPast,
+            )}
+          >
+            <button
+              className={styles.shiftSlotHeader}
+              onClick={() => setExpanded(isExpanded ? null : si)}
+              type="button"
+              aria-expanded={isExpanded}
+            >
+              <div className={styles.shiftTimeCol}>
+                <span className={styles.shiftTimeLabel}>{slot.label}</span>
+                {isCurrent && <span className={styles.shiftNowPip} aria-hidden="true" />}
+              </div>
+              <div className={styles.shiftSummary}>
+                <span className={styles.shiftDealerCount}>
+                  {slot.dealers.length} dealer{slot.dealers.length !== 1 ? "s" : ""}
+                </span>
+                {(shiftLate > 0 || shiftOut > 0) && (
+                  <span className={styles.shiftIssueBadges}>
+                    {shiftLate > 0 && <span className="badge warning">{shiftLate} late</span>}
+                    {shiftOut  > 0 && <span className="badge danger">{shiftOut} out</span>}
+                  </span>
+                )}
+              </div>
+              <ChevronDown
+                className={cx(styles.shiftChevron, isExpanded && styles.shiftChevronOpen)}
+                size={16}
+                aria-hidden="true"
+              />
+            </button>
+            {isExpanded && (
+              <>
+                <ul className={styles.shiftDealerList} role="list">
+                  {slot.dealers.map((dealer) => (
+                    <li key={dealer.id} className={styles.shiftDealerRow}>
+                      <div className={styles.shiftDealerAvatar}>{dealer.initials}</div>
+                      <div className={styles.shiftDealerMeta}>
+                        <span className={styles.shiftDealerName}>{dealer.name}</span>
+                        {dealer.status !== "unset" && (
+                          <span className={`badge ${STATUS_BADGE[dealer.status]}`}>
+                            {STATUS_LABELS[dealer.status]}
+                          </span>
+                        )}
+                      </div>
+                      <div className={styles.shiftMarkBtns}>
+                        <button type="button"
+                          className={cx(styles.shiftMarkBtn, styles.shiftMarkBtnLate, dealer.status === "late" && styles.shiftMarkBtnLateActive)}
+                          onClick={() => markDealer(si, dealer.id, toggle(dealer.status, "late"))}>
+                          Late
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className={styles.shiftRandomizeBar}>
+                  <span className={styles.shiftRandomizeLabel}>{eligible} in the draw</span>
+                  <button
+                    type="button"
+                    className={styles.shiftLineupBtn}
+                    onClick={() => handleRandomize(si)}
+                    disabled={eligible === 0}
+                  >
+                    <Shuffle size={13} aria-hidden="true" />
+                    Randomize
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <>
       <main className={styles.floorContent}>
@@ -825,114 +947,14 @@ export default function OnTheFloorNowPage() {
               <div className={`${styles.floorSection} ${styles.floorSectionDrenched}`}>
                 <div className={`${styles.floorSectionHeader} ${styles.floorSectionHeaderDrenched}`}>
                   <div>
-                    <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Schedule</p>
+                    <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>{dayLabel}</p>
                     <p className={`${styles.floorSectionSubtitle} ${styles.floorSectionSubtitleDrenched}`}>
-                      {dayLabel}, {dateLabel}
+                      {dateLabel}
                     </p>
                   </div>
                 </div>
                 <div className={`${styles.floorSectionBody} ${styles.floorScheduleBody}`}>
-                  <div className={styles.floorShiftList}>
-                    {slots.map((slot, si) => {
-                      const shiftStartMinutes = getShiftStartMinutes(slot.hour);
-                      const isPast     = shiftStartMinutes <= currentMinutes;
-                      const isCurrent  = si === currentIdx;
-                      const isExpanded = expanded === si;
-                      const shiftLate  = slot.dealers.filter((d) => d.status === "late").length;
-                      const shiftOut   = slot.dealers.filter((d) => d.status === "absent" || d.status === "callout").length;
-                      const eligible   = slot.dealers.filter((d) => d.status === "unset" || d.status === "late").length;
-
-                      return (
-                        <div
-                          key={slot.label}
-                          className={cx(
-                            styles.shiftSlotCard,
-                            isCurrent && styles.shiftCurrent,
-                            isPast && styles.shiftPast,
-                          )}
-                        >
-                          <button
-                            className={styles.shiftSlotHeader}
-                            onClick={() => setExpanded(isExpanded ? null : si)}
-                            type="button"
-                            aria-expanded={isExpanded}
-                          >
-                            <div className={styles.shiftTimeCol}>
-                              <span className={styles.shiftTimeLabel}>{slot.label}</span>
-                              {isCurrent && <span className={styles.shiftNowPip} aria-hidden="true" />}
-                            </div>
-                            <div className={styles.shiftSummary}>
-                              <span className={styles.shiftDealerCount}>
-                                {slot.dealers.length} dealer{slot.dealers.length !== 1 ? "s" : ""}
-                              </span>
-                              {(shiftLate > 0 || shiftOut > 0) && (
-                                <span className={styles.shiftIssueBadges}>
-                                  {shiftLate > 0 && <span className="badge warning">{shiftLate} late</span>}
-                                  {shiftOut  > 0 && <span className="badge danger">{shiftOut} out</span>}
-                                </span>
-                              )}
-                            </div>
-                            <ChevronDown
-                              className={cx(
-                                styles.shiftChevron,
-                                isExpanded && styles.shiftChevronOpen,
-                              )}
-                              size={16}
-                              aria-hidden="true"
-                            />
-                          </button>
-
-                          {isExpanded && (
-                            <>
-                              <ul className={styles.shiftDealerList} role="list">
-                                {slot.dealers.map((dealer) => (
-                                  <li key={dealer.id} className={styles.shiftDealerRow}>
-                                    <div className={styles.shiftDealerAvatar}>
-                                      {dealer.initials}
-                                    </div>
-                                    <div className={styles.shiftDealerMeta}>
-                                      <span className={styles.shiftDealerName}>{dealer.name}</span>
-                                      {dealer.status !== "unset" && (
-                                        <span className={`badge ${STATUS_BADGE[dealer.status]}`}>
-                                          {STATUS_LABELS[dealer.status]}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className={styles.shiftMarkBtns}>
-                                      <button type="button"
-                                        className={cx(
-                                          styles.shiftMarkBtn,
-                                          styles.shiftMarkBtnLate,
-                                          dealer.status === "late" && styles.shiftMarkBtnLateActive,
-                                        )}
-                                        onClick={() => markDealer(si, dealer.id, toggle(dealer.status, "late"))}>
-                                        Late
-                                      </button>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-
-                              <div className={styles.shiftRandomizeBar}>
-                                <span className={styles.shiftRandomizeLabel}>
-                                  {eligible} in the draw
-                                </span>
-                                <button
-                                  type="button"
-                                  className={styles.shiftLineupBtn}
-                                  onClick={() => handleRandomize(si)}
-                                  disabled={eligible === 0}
-                                >
-                                  <Shuffle size={13} aria-hidden="true" />
-                                  Randomize
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {shiftListContent}
                 </div>
               </div>
 
@@ -1562,8 +1584,10 @@ function createShiftSlotsForDate(
   shiftDate: string,
   isSunday: boolean,
 ) {
+  // Sunday: casino opens 10:30 AM, so first shift is 12 PM.
+  // Last shift is 12 AM (runs until casino closes at 2 AM Monday).
   const templates = isSunday
-    ? SHIFT_TEMPLATES.filter((slot) => slot.hour !== 0 && slot.hour <= 18)
+    ? SHIFT_TEMPLATES.filter((slot) => slot.hour === 0 || slot.hour >= 12)
     : SHIFT_TEMPLATES;
 
   return templates.map((template) => {

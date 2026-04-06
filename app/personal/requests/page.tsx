@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, CircleAlert, Square, SquareCheckBig } from "lucide-react";
+import { Check, Square, SquareCheckBig } from "lucide-react";
 import {
   getAllTimeOffRequests,
   TIME_OFF_REASON_LABELS,
@@ -92,15 +92,47 @@ export default function PersonalRequestsPage() {
 
   return (
     <main className={shared.personalContent}>
-      <div className={shared.personalColMain}>
-        <div className={`${shared.pCard} ${styles.requestFormCard}`}>
-          <div className={`${shared.pCardHeader} ${styles.requestFormHeader}`}>
+      <div className={`${shared.personalFullSpan} ${styles.requestsPageStack}`}>
+        <div className={`${shared.pCard} ${styles.requestsPanelCard}`}>
+          <div className={`${shared.pCardHeader} ${styles.requestsPanelHeader}`}>
+            <p className={shared.pCardTitle}>My Requests</p>
+          </div>
+          <div className={`${shared.pCardBody} ${styles.requestsPanelBody}`}>
+            {employeeRequests.length === 0 ? (
+              <div className="empty-state" style={{ padding: "20px 12px", textAlign: "center" }}>
+                <p className="mini-title" style={{ marginBottom: 4 }}>
+                  No requests yet
+                </p>
+                <p className="mini-copy">
+                  Requests you submit will appear here with their current status.
+                </p>
+              </div>
+            ) : (
+              employeeRequests.map((request) => (
+                <div key={request.id} className={styles.requestRow}>
+                  <div className={styles.requestInfo}>
+                    <p className={styles.requestInfoTitle}>{request.datesAbsent}</p>
+                    <p className={styles.requestInfoDates}>
+                      {TIME_OFF_REASON_LABELS[request.reason]} · {request.hoursAbsent} hours
+                    </p>
+                  </div>
+                  <span className={`badge ${STATUS_STYLE[request.status]}`}>
+                    {TIME_OFF_STATUS_LABELS[request.status]}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className={`${shared.pCard} ${styles.requestFormCard} ${styles.requestsPanelCard}`}>
+          <div className={`${shared.pCardHeader} ${styles.requestsPanelHeader} ${styles.requestFormHeader}`}>
             <div>
               <p className={shared.pCardTitle}>Time Off Request Form</p>
             </div>
           </div>
 
-          <div className={shared.pCardBody}>
+          <div className={`${shared.pCardBody} ${styles.requestsPanelBody}`}>
             {submitted && (
               <div className="notice-card ok" style={{ marginBottom: 16 }}>
                 <Check size={15} aria-hidden="true" />
@@ -301,44 +333,6 @@ export default function PersonalRequestsPage() {
               </button>
             </form>
           </div>
-        </div>
-      </div>
-
-      <div className={shared.personalColSide}>
-        <div className={shared.pCard}>
-          <div className={shared.pCardHeader}>
-            <p className={shared.pCardTitle}>My Requests</p>
-          </div>
-          <div className={shared.pCardBody}>
-            {employeeRequests.length === 0 ? (
-              <div className="empty-state" style={{ padding: "20px 12px", textAlign: "center" }}>
-                <p className="mini-title" style={{ marginBottom: 4 }}>
-                  No requests yet
-                </p>
-                <p className="mini-copy">
-                  Requests you submit will appear here with their current status.
-                </p>
-              </div>
-            ) : (
-              employeeRequests.map((request) => (
-                <div key={request.id} className={styles.requestRow}>
-                  <div className={styles.requestInfo}>
-                    <p className={styles.requestInfoTitle}>{request.datesAbsent}</p>
-                    <p className={styles.requestInfoDates}>
-                      {TIME_OFF_REASON_LABELS[request.reason]} · {request.hoursAbsent} hours
-                    </p>
-                  </div>
-                  <span className={`badge ${STATUS_STYLE[request.status]}`}>
-                    {TIME_OFF_STATUS_LABELS[request.status]}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="notice-card info">
-          <CircleAlert size={15} aria-hidden="true" />
         </div>
       </div>
     </main>

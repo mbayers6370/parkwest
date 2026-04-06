@@ -1,13 +1,88 @@
-.floorContent { composes: floorContent from "../floor.module.css"; }
-.floorControlBar { composes: floorControlBar from "../floor.module.css"; }
-.floorFilterLabel { composes: floorFilterLabel from "../floor.module.css"; }
-.floorFilterRow { composes: floorFilterRow from "../floor.module.css"; }
-.floorMainCol { composes: floorMainCol from "../floor.module.css"; }
-.floorPill { composes: floorPill from "../floor.module.css"; }
-.floorPillActive { composes: floorPillActive from "../floor.module.css"; }
-.floorSection { composes: floorSection from "../floor.module.css"; }
-.floorSectionHeader { composes: floorSectionHeader from "../floor.module.css"; }
-.floorSectionTitle { composes: floorSectionTitle from "../floor.module.css"; }
+.floorContent {
+  flex: 1;
+  padding: 22px 18px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.floorControlBar {
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--ivory-100) 95%, transparent);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card-tight);
+}
+
+.floorFilterLabel {
+  font-size: var(--text-xs-plus);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--foreground-muted);
+  margin-right: 2px;
+}
+
+.floorFilterRow {
+  display: flex;
+  gap: var(--gap-card-tight);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.floorMainCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.floorPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--text-sm-plus);
+  font-weight: 700;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.floorPillActive {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
+  color: var(--gold-dark);
+  font-weight: 400;
+}
+
+.floorSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.floorSectionHeader {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-card-tight);
+}
+
+.floorSectionTitle {
+  margin: 0 0 2px;
+  font-size: var(--text-base);
+  font-weight: 800;
+}
 
 .floorSchedulePageMain {
   width: 100%;

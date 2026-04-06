@@ -808,6 +808,21 @@
   margin-top: 18px;
 }
 
+.employee-search-results {
+  margin-top: 12px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.employee-edit-actions {
+  gap: 12px;
+  margin-top: 6px;
+}
+
 /* ── Desktop: cards → sections ───────────────────────────── */
 @media (min-width: 901px) {
   /* Stat cards: flat, no elevation */

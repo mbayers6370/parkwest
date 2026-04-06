@@ -116,9 +116,22 @@ enum OpenShiftBidEligibilityStatus {
   PENDING_REVIEW
 }
 
+model Property {
+  id                   String               @id @default(cuid())
+  propertyKey          String               @unique
+  propertyName         String
+  active               Boolean              @default(true)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  employees            Employee[]
+  employeeImportBatches EmployeeImportBatch[]
+  scheduleImportBatches ScheduleImportBatch[]
+}
+
 model Employee {
   id                            String                         @id @default(cuid())
-  employeeId                    String                         @unique
+  propertyIdFk                  String?
+  employeeId                    String
   badgeId                       String?
   firstName                     String
   lastName                      String
@@ -131,6 +144,7 @@ model Employee {
   terminationDate               DateTime?
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
+  property                      Property?                      @relation(fields: [propertyIdFk], references: [id], onDelete: SetNull)
   aliases                       EmployeeAlias[]
   account                       UserAccount?
   roleAssignments               EmployeeRoleAssignment[]
@@ -153,6 +167,9 @@ model Employee {
   auditLogs                     AuditLog[]                    @relation("AuditActors")
   createdOpenShifts             OpenShift[]                   @relation("OpenShiftCreatedBy")
   openShiftBids                 OpenShiftBid[]
+
+  @@unique([propertyIdFk, employeeId])
+  @@index([propertyIdFk, displayName])
 }
 
 model EmployeeAlias {
@@ -248,8 +265,21 @@ model WorkspaceAccess {
   @@index([employeeIdFk, workspaceKey])
 }
 
+model EmployeeImportBatch {
+  id               String    @id @default(cuid())
+  propertyIdFk     String
+  originalFilename String
+  fileType         String
+  totalRows        Int       @default(0)
+  importedAt       DateTime  @default(now())
+  property         Property  @relation(fields: [propertyIdFk], references: [id], onDelete: Cascade)
+
+  @@index([propertyIdFk, importedAt])
+}
+
 model ScheduleImportBatch {
   id                     String                 @id @default(cuid())
+  propertyIdFk           String?
   uploadedByEmployeeIdFk String?
   originalFilename     String
   fileType             String
@@ -262,9 +292,12 @@ model ScheduleImportBatch {
   ambiguousRows        Int                    @default(0)
   importedAt           DateTime               @default(now())
   completedAt          DateTime?
+  property               Property?              @relation(fields: [propertyIdFk], references: [id], onDelete: SetNull)
   uploadedBy             Employee?              @relation("UploadedScheduleImports", fields: [uploadedByEmployeeIdFk], references: [id])
   rows                 ScheduleImportRow[]
   scheduleWeeks        ScheduleWeek[]
+
+  @@index([propertyIdFk, importedAt])
 }
 
 model ScheduleImportRow {

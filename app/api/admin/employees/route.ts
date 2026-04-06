@@ -1,29 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AliasType, EmployeeStatus, EmploymentType, WorkspaceKey } from "@prisma/client";
+import { EmployeeStatus, EmploymentType, WorkspaceKey } from "@prisma/client";
+import { findDepartmentOptionByName } from "@/lib/employee-departments";
 import { isMockModeEnabled, mockEmployees } from "@/lib/mock-data";
+import { findDefaultPropertyByKey } from "@/lib/properties";
 import { prisma } from "@/lib/prisma";
-
-function parseAliases(rawAliases: string) {
-  return Array.from(
-    new Set(
-      rawAliases
-        .split(",")
-        .map((alias) => alias.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
-function normalizeAlias(alias: string) {
-  return alias.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query")?.trim() ?? "";
+  const propertyKey = request.nextUrl.searchParams.get("propertyKey")?.trim().toLowerCase() ?? "";
 
   if (isMockModeEnabled()) {
     const normalizedQuery = query.toLowerCase();
     const employees = mockEmployees.filter((employee) => {
+      const matchesProperty = propertyKey
+        ? (employee.propertyKey ?? "580").toLowerCase() === propertyKey
+        : true;
+
+      if (!matchesProperty) {
+        return false;
+      }
+
       if (!normalizedQuery) {
         return true;
       }
@@ -32,8 +28,7 @@ export async function GET(request: NextRequest) {
         employee.displayName,
         employee.firstName,
         employee.lastName,
-        employee.preferredName ?? "",
-        ...employee.aliases.map((alias) => alias.aliasName),
+        employee.employeeId,
       ]
         .join(" ")
         .toLowerCase();
@@ -48,52 +43,55 @@ export async function GET(request: NextRequest) {
     const employees = await prisma.employee.findMany({
       where: query
         ? {
-            OR: [
+            AND: [
+              propertyKey
+                ? {
+                    property: {
+                      is: {
+                        propertyKey,
+                      },
+                    },
+                  }
+                : {},
               {
-                displayName: {
-                  contains: query,
-                  mode: "insensitive",
-                },
-              },
-              {
-                firstName: {
-                  contains: query,
-                  mode: "insensitive",
-                },
-              },
-              {
-                lastName: {
-                  contains: query,
-                  mode: "insensitive",
-                },
-              },
-              {
-                preferredName: {
-                  contains: query,
-                  mode: "insensitive",
-                },
-              },
-              {
-                aliases: {
-                  some: {
-                    aliasName: {
+                OR: [
+                  {
+                    displayName: {
                       contains: query,
                       mode: "insensitive",
                     },
                   },
-                },
+                  {
+                    firstName: {
+                      contains: query,
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    lastName: {
+                      contains: query,
+                      mode: "insensitive",
+                    },
+                  },
+                ],
               },
             ],
           }
-        : undefined,
+        : propertyKey
+          ? {
+              property: {
+                is: {
+                  propertyKey,
+                },
+              },
+            }
+          : undefined,
       select: {
         id: true,
         employeeId: true,
         firstName: true,
         lastName: true,
         displayName: true,
-        preferredName: true,
-        badgeId: true,
         status: true,
         employmentType: true,
         departmentAssignments: {
@@ -107,15 +105,6 @@ export async function GET(request: NextRequest) {
                 departmentName: true,
               },
             },
-          },
-        },
-        aliases: {
-          take: 3,
-          orderBy: {
-            isPrimary: "desc",
-          },
-          select: {
-            aliasName: true,
           },
         },
       },
@@ -142,19 +131,27 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
+    propertyKey?: string;
     employeeId: string;
     firstName: string;
     lastName: string;
-    preferredName?: string;
     displayName?: string;
-    badgeId?: string;
-    aliases?: string;
+    department?: string;
   };
 
+  const departmentOption = findDepartmentOptionByName(body.department);
+  const property = findDefaultPropertyByKey(body.propertyKey ?? "580");
+
+  if (!departmentOption || !property) {
+    return NextResponse.json(
+      { error: "A valid property and department are required." },
+      { status: 400 },
+    );
+  }
+
   if (isMockModeEnabled()) {
-    const aliases = parseAliases(body.aliases ?? "");
     const displayName =
-      body.displayName?.trim() || body.preferredName?.trim() || `${body.firstName} ${body.lastName}`;
+      body.displayName?.trim() || `${body.firstName} ${body.lastName}`;
 
     return NextResponse.json({
       employee: {
@@ -163,45 +160,70 @@ export async function POST(request: Request) {
         firstName: body.firstName.trim(),
         lastName: body.lastName.trim(),
         displayName,
-        preferredName: body.preferredName?.trim() || null,
-        badgeId: body.badgeId?.trim() || null,
+        badgeId: body.employeeId.trim(),
         status: "ACTIVE",
         employmentType: "OTHER",
-        departmentAssignments: [],
-        aliases: aliases.map((alias) => ({
-          aliasName: alias,
-        })),
+        property: {
+          propertyKey: property.key,
+          propertyName: property.name,
+        },
+        departmentAssignments: [
+          {
+            isPrimary: true,
+            department: {
+              departmentName: departmentOption.name,
+            },
+          },
+        ],
       },
       mockMode: true,
     });
   }
 
   try {
-    const aliases = parseAliases(body.aliases ?? "");
     const displayName =
-      body.displayName?.trim() || body.preferredName?.trim() || `${body.firstName} ${body.lastName}`;
+      body.displayName?.trim() || `${body.firstName} ${body.lastName}`;
 
     const employee = await prisma.employee.create({
       data: {
         employeeId: body.employeeId.trim(),
         firstName: body.firstName.trim(),
         lastName: body.lastName.trim(),
-        preferredName: body.preferredName?.trim() || null,
+        preferredName: null,
         displayName,
-        badgeId: body.badgeId?.trim() || null,
+        badgeId: body.employeeId.trim(),
         status: EmployeeStatus.ACTIVE,
         employmentType: EmploymentType.OTHER,
-        aliases: {
-          create: aliases.map((alias, index) => ({
-            aliasName: alias,
-            normalizedAliasName: normalizeAlias(alias),
-            aliasType: index === 0 ? AliasType.SCHEDULE : AliasType.MANUAL,
-            isPrimary: index === 0,
-          })),
-        },
         workspaceAccess: {
           create: {
             workspaceKey: WorkspaceKey.PERSONAL,
+          },
+        },
+        property: {
+          connectOrCreate: {
+            where: {
+              propertyKey: property.key,
+            },
+            create: {
+              propertyKey: property.key,
+              propertyName: property.name,
+            },
+          },
+        },
+        departmentAssignments: {
+          create: {
+            isPrimary: true,
+            department: {
+              connectOrCreate: {
+                where: {
+                  departmentKey: departmentOption.key,
+                },
+                create: {
+                  departmentKey: departmentOption.key,
+                  departmentName: departmentOption.name,
+                },
+              },
+            },
           },
         },
       },
@@ -211,8 +233,6 @@ export async function POST(request: Request) {
         firstName: true,
         lastName: true,
         displayName: true,
-        preferredName: true,
-        badgeId: true,
         status: true,
         employmentType: true,
         departmentAssignments: {
@@ -226,12 +246,6 @@ export async function POST(request: Request) {
                 departmentName: true,
               },
             },
-          },
-        },
-        aliases: {
-          orderBy: [{ isPrimary: "desc" }, { aliasName: "asc" }],
-          select: {
-            aliasName: true,
           },
         },
       },

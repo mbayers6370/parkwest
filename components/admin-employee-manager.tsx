@@ -1,13 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { EMPLOYEE_DEPARTMENT_OPTIONS } from "@/lib/employee-departments";
 
 type EmployeeSearchResult = {
   id: string;
   employeeId: string;
   displayName: string;
-  preferredName: string | null;
-  badgeId?: string | null;
   firstName?: string;
   lastName?: string;
   status: string;
@@ -17,9 +16,6 @@ type EmployeeSearchResult = {
     department: {
       departmentName: string;
     };
-  }[];
-  aliases: {
-    aliasName: string;
   }[];
 };
 
@@ -39,35 +35,43 @@ type EmployeeFormState = {
   employeeId: string;
   firstName: string;
   lastName: string;
-  preferredName: string;
   displayName: string;
-  badgeId: string;
-  aliases: string;
+  department: string;
 };
 
 const emptyForm: EmployeeFormState = {
   employeeId: "",
   firstName: "",
   lastName: "",
-  preferredName: "",
   displayName: "",
-  badgeId: "",
-  aliases: "",
+  department: "",
 };
 
 function toFormState(employee: EmployeeSearchResult): EmployeeFormState {
+  const primaryDepartment =
+    employee.departmentAssignments.find((assignment) => assignment.isPrimary)?.department
+      .departmentName ??
+    employee.departmentAssignments[0]?.department.departmentName ??
+    "";
+
   return {
     employeeId: employee.employeeId,
     firstName: employee.firstName ?? "",
     lastName: employee.lastName ?? "",
-    preferredName: employee.preferredName ?? "",
     displayName: employee.displayName,
-    badgeId: employee.badgeId ?? "",
-    aliases: employee.aliases.map((alias) => alias.aliasName).join(", "),
+    department: primaryDepartment,
   };
 }
 
-export function AdminEmployeeManager() {
+type AdminEmployeeManagerProps = {
+  propertyKey?: string;
+  propertyName?: string;
+};
+
+export function AdminEmployeeManager({
+  propertyKey,
+  propertyName,
+}: AdminEmployeeManagerProps) {
   const [query, setQuery] = useState("");
   const [employees, setEmployees] = useState<EmployeeSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,10 +80,24 @@ export function AdminEmployeeManager() {
   const [error, setError] = useState<string | null>(null);
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [editMessage, setEditMessage] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(false);
   const [createForm, setCreateForm] = useState<EmployeeFormState>(emptyForm);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EmployeeFormState>(emptyForm);
+  const employeeSearchUrl = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (query) {
+      params.set("query", query);
+    }
+
+    if (propertyKey) {
+      params.set("propertyKey", propertyKey);
+    }
+
+    return `/api/admin/employees?${params.toString()}`;
+  }, [propertyKey, query]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,10 +106,7 @@ export function AdminEmployeeManager() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/admin/employees?query=${encodeURIComponent(query)}`,
-          { signal: controller.signal },
-        );
+        const response = await fetch(employeeSearchUrl, { signal: controller.signal });
 
         const data = (await response.json()) as EmployeeResponse;
 
@@ -117,12 +132,18 @@ export function AdminEmployeeManager() {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [query]);
+  }, [employeeSearchUrl]);
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId) ?? null,
     [employees, selectedEmployeeId],
   );
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setSelectedEmployeeId(null);
+    }
+  }, [query]);
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -133,7 +154,7 @@ export function AdminEmployeeManager() {
   }, [selectedEmployee]);
 
   async function refreshSearch() {
-    const response = await fetch(`/api/admin/employees?query=${encodeURIComponent(query)}`);
+    const response = await fetch(employeeSearchUrl);
     const data = (await response.json()) as EmployeeResponse;
     setEmployees(data.employees);
     setMockMode(Boolean(data.mockMode));
@@ -144,6 +165,7 @@ export function AdminEmployeeManager() {
     setCreateLoading(true);
     setCreateMessage(null);
     setError(null);
+    setResetMessage(null);
 
     try {
       const response = await fetch("/api/admin/employees", {
@@ -151,7 +173,10 @@ export function AdminEmployeeManager() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(createForm),
+        body: JSON.stringify({
+          ...createForm,
+          propertyKey,
+        }),
       });
 
       const data = (await response.json()) as EmployeeMutationResponse;
@@ -182,6 +207,7 @@ export function AdminEmployeeManager() {
     setEditLoading(true);
     setEditMessage(null);
     setError(null);
+    setResetMessage(null);
 
     try {
       const response = await fetch(`/api/admin/employees/${selectedEmployeeId}`, {
@@ -189,7 +215,10 @@ export function AdminEmployeeManager() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          propertyKey,
+        }),
       });
 
       const data = (await response.json()) as EmployeeMutationResponse;
@@ -210,6 +239,16 @@ export function AdminEmployeeManager() {
     }
   }
 
+  function handleResetLogin() {
+    if (!selectedEmployee) {
+      return;
+    }
+
+    setResetMessage(
+      `Reset login link queued for ${selectedEmployee.displayName}. Mock only for now.`,
+    );
+  }
+
   return (
     <div className="stack">
       {mockMode ? (
@@ -228,8 +267,8 @@ export function AdminEmployeeManager() {
           <p className="mini-label">Add Employee</p>
           <p className="mini-title">Create a new employee record</p>
           <p className="mini-copy">
-            This writes directly to the employee table and can include schedule aliases from day
-            one.
+            This writes directly to the employee table
+            {propertyName ? ` for ${propertyName}` : ""}.
           </p>
 
           <form className="stack form-stack" onSubmit={handleCreate}>
@@ -246,20 +285,6 @@ export function AdminEmployeeManager() {
                     setCreateForm((current) => ({ ...current, employeeId: event.target.value }))
                   }
                   required
-                />
-              </div>
-
-              <div className="field-stack">
-                <label className="field-label" htmlFor="create-badge-id">
-                  Badge ID
-                </label>
-                <input
-                  id="create-badge-id"
-                  className="text-input"
-                  value={createForm.badgeId}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({ ...current, badgeId: event.target.value }))
-                  }
                 />
               </div>
 
@@ -294,23 +319,6 @@ export function AdminEmployeeManager() {
               </div>
 
               <div className="field-stack">
-                <label className="field-label" htmlFor="create-preferred-name">
-                  Preferred name
-                </label>
-                <input
-                  id="create-preferred-name"
-                  className="text-input"
-                  value={createForm.preferredName}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      preferredName: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="field-stack">
                 <label className="field-label" htmlFor="create-display-name">
                   Display name
                 </label>
@@ -323,21 +331,28 @@ export function AdminEmployeeManager() {
                   }
                 />
               </div>
-            </div>
 
-            <div className="field-stack">
-              <label className="field-label" htmlFor="create-aliases">
-                Aliases
-              </label>
-              <input
-                id="create-aliases"
-                className="text-input"
-                value={createForm.aliases}
-                onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, aliases: event.target.value }))
-                }
-                placeholder="Example: Matt, Matthew Bayers, Bayers"
-              />
+              <div className="field-stack">
+                <label className="field-label" htmlFor="create-department">
+                  Department
+                </label>
+                <select
+                  id="create-department"
+                  className="text-input"
+                  value={createForm.department}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, department: event.target.value }))
+                  }
+                  required
+                >
+                  <option value="">Select department</option>
+                  {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
+                    <option key={department.key} value={department.name}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <button className="primary-button" type="submit" disabled={createLoading}>
@@ -352,7 +367,8 @@ export function AdminEmployeeManager() {
           <p className="mini-label">Search And Edit</p>
           <p className="mini-title">Find employees as you type</p>
           <p className="mini-copy">
-            Search by employee name, preferred name, or alias and edit the selected person.
+            Search by employee name or employee ID, then choose the correct employee to edit
+            {propertyName ? ` inside ${propertyName}` : ""}.
           </p>
 
           <div className="field-stack">
@@ -365,65 +381,56 @@ export function AdminEmployeeManager() {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by display name, preferred name, or alias"
+              placeholder="Search by display name or employee ID"
             />
           </div>
 
           {loading ? <p className="status-text">Searching...</p> : null}
           {error ? <p className="status-text error">{error}</p> : null}
-
-          <div className="stack compact-stack">
-            {employees.map((employee) => (
-              <article key={employee.id} className="result-card nested-card">
-                <div className="result-card-header">
-                  <div>
-                    <p className="result-title">{employee.displayName}</p>
-                    <p className="result-subtitle">Employee ID {employee.employeeId}</p>
+          {query.trim() && employees.length > 0 ? (
+            <div className="stack compact-stack employee-search-results">
+              {employees.map((employee) => (
+                <article key={employee.id} className="result-card nested-card">
+                  <div className="result-card-header">
+                    <div>
+                      <p className="result-title">{employee.displayName}</p>
+                      <p className="result-subtitle">Employee ID {employee.employeeId}</p>
+                    </div>
+                    <button
+                      className={`secondary-button${
+                        selectedEmployeeId === employee.id ? " active" : ""
+                      }`}
+                      type="button"
+                      onClick={() => setSelectedEmployeeId(employee.id)}
+                    >
+                      {selectedEmployeeId === employee.id ? "Editing" : "Edit"}
+                    </button>
                   </div>
-                  <button
-                    className={`secondary-button${
-                      selectedEmployeeId === employee.id ? " active" : ""
-                    }`}
-                    type="button"
-                    onClick={() => setSelectedEmployeeId(employee.id)}
-                  >
-                    {selectedEmployeeId === employee.id ? "Editing" : "Edit"}
-                  </button>
-                </div>
 
-                <div className="badge-row">
-                  {employee.departmentAssignments.length > 0 ? (
-                    employee.departmentAssignments.map((assignment) => (
-                      <span
-                        key={`${employee.id}-${assignment.department.departmentName}`}
-                        className={`badge ${assignment.isPrimary ? "success" : "warning"}`}
-                      >
-                        {assignment.department.departmentName}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="badge warning">No department</span>
-                  )}
-                </div>
-
-                <p className="result-meta">
-                  Aliases:{" "}
-                  {employee.aliases.length > 0
-                    ? employee.aliases.map((alias) => alias.aliasName).join(", ")
-                    : "None yet"}
-                </p>
-              </article>
-            ))}
-
-            {!loading && !error && employees.length === 0 ? (
-              <div className="empty-state">
-                <p className="mini-title">No employees found yet.</p>
-                <p className="mini-copy">
-                  Once employee records exist in the database, matching results will appear here.
-                </p>
-              </div>
-            ) : null}
-          </div>
+                  <div className="badge-row">
+                    {employee.departmentAssignments.length > 0 ? (
+                      employee.departmentAssignments.map((assignment) => (
+                        <span
+                          key={`${employee.id}-${assignment.department.departmentName}`}
+                          className={`badge ${assignment.isPrimary ? "success" : "warning"}`}
+                        >
+                          {assignment.department.departmentName}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="badge warning">No department</span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          {!loading && !error && query.trim() && employees.length === 0 ? (
+            <div className="empty-state">
+              <p className="mini-title">No employees found.</p>
+              <p className="mini-copy">Keep typing to search by employee name or employee ID.</p>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -433,7 +440,7 @@ export function AdminEmployeeManager() {
           {selectedEmployee ? `Editing ${selectedEmployee.displayName}` : "Choose an employee"}
         </p>
         <p className="mini-copy">
-          Update the base employee record and the name aliases used for schedule imports.
+          Update the base employee record for the selected person.
         </p>
 
         {selectedEmployee ? (
@@ -451,20 +458,6 @@ export function AdminEmployeeManager() {
                     setEditForm((current) => ({ ...current, employeeId: event.target.value }))
                   }
                   required
-                />
-              </div>
-
-              <div className="field-stack">
-                <label className="field-label" htmlFor="edit-badge-id">
-                  Badge ID
-                </label>
-                <input
-                  id="edit-badge-id"
-                  className="text-input"
-                  value={editForm.badgeId}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, badgeId: event.target.value }))
-                  }
                 />
               </div>
 
@@ -499,23 +492,6 @@ export function AdminEmployeeManager() {
               </div>
 
               <div className="field-stack">
-                <label className="field-label" htmlFor="edit-preferred-name">
-                  Preferred name
-                </label>
-                <input
-                  id="edit-preferred-name"
-                  className="text-input"
-                  value={editForm.preferredName}
-                  onChange={(event) =>
-                    setEditForm((current) => ({
-                      ...current,
-                      preferredName: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="field-stack">
                 <label className="field-label" htmlFor="edit-display-name">
                   Display name
                 </label>
@@ -528,36 +504,54 @@ export function AdminEmployeeManager() {
                   }
                 />
               </div>
+
+              <div className="field-stack">
+                <label className="field-label" htmlFor="edit-department">
+                  Department
+                </label>
+                <select
+                  id="edit-department"
+                  className="text-input"
+                  value={editForm.department}
+                  onChange={(event) =>
+                    setEditForm((current) => ({ ...current, department: event.target.value }))
+                  }
+                  required
+                >
+                  <option value="">Select department</option>
+                  {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
+                    <option key={department.key} value={department.name}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="field-stack">
-              <label className="field-label" htmlFor="edit-aliases">
-                Aliases
-              </label>
-              <input
-                id="edit-aliases"
-                className="text-input"
-                value={editForm.aliases}
-                onChange={(event) =>
-                  setEditForm((current) => ({ ...current, aliases: event.target.value }))
-                }
-              />
+            <div className="button-row employee-edit-actions">
+              <button className="primary-button" type="submit" disabled={editLoading}>
+                {editLoading ? "Saving changes..." : "Save employee changes"}
+              </button>
+              <button
+                className="secondary-button employee-edit-secondary"
+                type="button"
+                onClick={handleResetLogin}
+              >
+                Reset Login
+              </button>
             </div>
-
-            <button className="primary-button" type="submit" disabled={editLoading}>
-              {editLoading ? "Saving changes..." : "Save employee changes"}
-            </button>
           </form>
         ) : (
           <div className="empty-state">
-            <p className="mini-title">Select someone from search results.</p>
+            <p className="mini-title">Choose an employee.</p>
             <p className="mini-copy">
-              Once selected, their record will load into this editor for updates.
+              Search above, then pick the correct person from the matching list.
             </p>
           </div>
         )}
 
         {editMessage ? <p className="status-text success">{editMessage}</p> : null}
+        {resetMessage ? <p className="status-text success">{resetMessage}</p> : null}
       </section>
     </div>
   );

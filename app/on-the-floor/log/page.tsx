@@ -431,7 +431,7 @@ export default function FloorLogPage() {
             </div>
           </div>
 
-          <div className={styles.floorSection}>
+          <div className={`${styles.floorSection} ${styles.floorCoverageSection}`}>
             <div className={styles.floorSectionHeader}>
               <div>
                 <p className={styles.floorSectionTitle}>Attendance</p>
@@ -468,9 +468,13 @@ export default function FloorLogPage() {
                 </div>
 
                 <label className={styles.floorLogSearch}>
-                  <Search size={14} aria-hidden="true" />
+                  <Search
+                    size={14}
+                    aria-hidden="true"
+                    className={styles.floorLogSearchIcon}
+                  />
                   <input
-                    className="text-input"
+                    className={`text-input ${styles.floorLogSearchInput}`}
                     type="text"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}

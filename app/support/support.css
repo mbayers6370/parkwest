@@ -1,0 +1,23 @@
+.support-property-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.support-property-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.support-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.support-link-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

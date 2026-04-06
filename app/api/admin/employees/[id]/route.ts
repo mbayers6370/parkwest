@@ -1,22 +1,8 @@
 import { NextResponse } from "next/server";
-import { AliasType } from "@prisma/client";
+import { findDepartmentOptionByName } from "@/lib/employee-departments";
 import { isMockModeEnabled } from "@/lib/mock-data";
+import { findDefaultPropertyByKey } from "@/lib/properties";
 import { prisma } from "@/lib/prisma";
-
-function parseAliases(rawAliases: string) {
-  return Array.from(
-    new Set(
-      rawAliases
-        .split(",")
-        .map((alias) => alias.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
-function normalizeAlias(alias: string) {
-  return alias.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
 
 export async function PATCH(
   request: Request,
@@ -24,19 +10,27 @@ export async function PATCH(
 ) {
   const { id } = await context.params;
   const body = (await request.json()) as {
+    propertyKey?: string;
     employeeId: string;
     firstName: string;
     lastName: string;
-    preferredName?: string;
     displayName?: string;
-    badgeId?: string;
-    aliases?: string;
+    department?: string;
   };
 
+  const departmentOption = findDepartmentOptionByName(body.department);
+  const property = findDefaultPropertyByKey(body.propertyKey ?? "580");
+
+  if (!departmentOption || !property) {
+    return NextResponse.json(
+      { error: "A valid property and department are required." },
+      { status: 400 },
+    );
+  }
+
   if (isMockModeEnabled()) {
-    const aliases = parseAliases(body.aliases ?? "");
     const displayName =
-      body.displayName?.trim() || body.preferredName?.trim() || `${body.firstName} ${body.lastName}`;
+      body.displayName?.trim() || `${body.firstName} ${body.lastName}`;
 
     return NextResponse.json({
       employee: {
@@ -45,23 +39,56 @@ export async function PATCH(
         firstName: body.firstName.trim(),
         lastName: body.lastName.trim(),
         displayName,
-        preferredName: body.preferredName?.trim() || null,
-        badgeId: body.badgeId?.trim() || null,
+        badgeId: body.employeeId.trim(),
         status: "ACTIVE",
         employmentType: "OTHER",
-        departmentAssignments: [],
-        aliases: aliases.map((alias) => ({
-          aliasName: alias,
-        })),
+        property: {
+          propertyKey: property.key,
+          propertyName: property.name,
+        },
+        departmentAssignments: [
+          {
+            isPrimary: true,
+            department: {
+              departmentName: departmentOption.name,
+            },
+          },
+        ],
       },
       mockMode: true,
     });
   }
 
   try {
-    const aliases = parseAliases(body.aliases ?? "");
+    const existingEmployee = await prisma.employee.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        property: {
+          select: {
+            propertyKey: true,
+          },
+        },
+      },
+    });
+
+    if (!existingEmployee) {
+      return NextResponse.json({ error: "Employee not found." }, { status: 404 });
+    }
+
+    if (
+      body.propertyKey &&
+      existingEmployee.property?.propertyKey &&
+      existingEmployee.property.propertyKey !== property.key
+    ) {
+      return NextResponse.json(
+        { error: "That employee does not belong to the selected property." },
+        { status: 400 },
+      );
+    }
+
     const displayName =
-      body.displayName?.trim() || body.preferredName?.trim() || `${body.firstName} ${body.lastName}`;
+      body.displayName?.trim() || `${body.firstName} ${body.lastName}`;
 
     await prisma.employee.update({
       where: { id },
@@ -69,17 +96,48 @@ export async function PATCH(
         employeeId: body.employeeId.trim(),
         firstName: body.firstName.trim(),
         lastName: body.lastName.trim(),
-        preferredName: body.preferredName?.trim() || null,
+        preferredName: null,
         displayName,
-        badgeId: body.badgeId?.trim() || null,
+        badgeId: body.employeeId.trim(),
+        property: {
+          connectOrCreate: {
+            where: {
+              propertyKey: property.key,
+            },
+            create: {
+              propertyKey: property.key,
+              propertyName: property.name,
+            },
+          },
+        },
         aliases: {
           deleteMany: {},
-          create: aliases.map((alias, index) => ({
-            aliasName: alias,
-            normalizedAliasName: normalizeAlias(alias),
-            aliasType: index === 0 ? AliasType.SCHEDULE : AliasType.MANUAL,
-            isPrimary: index === 0,
-          })),
+        },
+        departmentAssignments: {
+          updateMany: {
+            where: {
+              active: true,
+            },
+            data: {
+              active: false,
+              isPrimary: false,
+              endsAt: new Date(),
+            },
+          },
+          create: {
+            isPrimary: true,
+            department: {
+              connectOrCreate: {
+                where: {
+                  departmentKey: departmentOption.key,
+                },
+                create: {
+                  departmentKey: departmentOption.key,
+                  departmentName: departmentOption.name,
+                },
+              },
+            },
+          },
         },
       },
       select: {
@@ -88,8 +146,6 @@ export async function PATCH(
         firstName: true,
         lastName: true,
         displayName: true,
-        preferredName: true,
-        badgeId: true,
         status: true,
         employmentType: true,
         departmentAssignments: {
@@ -101,12 +157,6 @@ export async function PATCH(
                 departmentName: true,
               },
             },
-          },
-        },
-        aliases: {
-          orderBy: [{ isPrimary: "desc" }, { aliasName: "asc" }],
-          select: {
-            aliasName: true,
           },
         },
       },
@@ -120,8 +170,6 @@ export async function PATCH(
         firstName: true,
         lastName: true,
         displayName: true,
-        preferredName: true,
-        badgeId: true,
         status: true,
         employmentType: true,
         departmentAssignments: {
@@ -133,12 +181,6 @@ export async function PATCH(
                 departmentName: true,
               },
             },
-          },
-        },
-        aliases: {
-          orderBy: [{ isPrimary: "desc" }, { aliasName: "asc" }],
-          select: {
-            aliasName: true,
           },
         },
       },

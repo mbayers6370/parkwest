@@ -357,19 +357,26 @@ textarea {
   width: fit-content;
   min-height: 48px;
   padding: 12px 18px;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--gold-dark) 42%, transparent);
   border-radius: 999px;
-  background: var(--gold);
-  color: var(--ivory-100);
+  background: transparent;
+  color: var(--gold-dark);
   font-weight: 400;
   cursor: pointer;
   text-align: center;
   text-transform: capitalize;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 54%, transparent);
+  color: var(--gold-dark);
 }
 
 .primary-button:disabled {
-  cursor: wait;
-  opacity: 0.75;
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .status-text {
@@ -480,23 +487,30 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  padding: 10px 14px;
+  min-height: 48px;
+  padding: 12px 18px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: transparent;
   color: var(--foreground);
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   cursor: pointer;
   text-align: center;
   text-transform: capitalize;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--charcoal-900) 4%, transparent);
+  border-color: color-mix(in srgb, var(--charcoal-700) 28%, transparent);
+  color: var(--foreground);
 }
 
 .secondary-button.active {
   border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
   background: color-mix(in srgb, var(--gold) 18%, transparent);
-  color: var(--ivory-100);
+  color: var(--gold-dark);
   font-weight: 400;
 }
 

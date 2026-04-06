@@ -1,6 +1,7 @@
 export const mockEmployees = [
   {
     id: "mock-1",
+    propertyKey: "580",
     employeeId: "10021",
     firstName: "Matt",
     lastName: "Bayers",
@@ -21,6 +22,7 @@ export const mockEmployees = [
   },
   {
     id: "mock-2",
+    propertyKey: "580",
     employeeId: "10488",
     firstName: "Susan",
     lastName: "Tran",
@@ -33,7 +35,7 @@ export const mockEmployees = [
       {
         isPrimary: true,
         department: {
-          departmentName: "Dealers",
+          departmentName: "Dealer",
         },
       },
     ],
@@ -41,6 +43,7 @@ export const mockEmployees = [
   },
   {
     id: "mock-3",
+    propertyKey: "580",
     employeeId: "10931",
     firstName: "Johnny",
     lastName: "Pham",
@@ -53,7 +56,7 @@ export const mockEmployees = [
       {
         isPrimary: true,
         department: {
-          departmentName: "Chip Runners",
+          departmentName: "Chip Runner",
         },
       },
     ],

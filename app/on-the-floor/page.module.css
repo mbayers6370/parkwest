@@ -1,20 +1,114 @@
-.floorContent { composes: floorContent from "./floor.module.css"; }
-.floorDesktopGrid { composes: floorDesktopGrid from "./floor.module.css"; }
-.floorDesktopMain { composes: floorDesktopMain from "./floor.module.css"; }
-.floorDesktopSide { composes: floorDesktopSide from "./floor.module.css"; }
-.floorNowLayout { composes: floorNowLayout from "./floor.module.css"; }
-.floorPill { composes: floorPill from "./floor.module.css"; }
-.floorPillActive { composes: floorPillActive from "./floor.module.css"; }
-.floorPillHalfPointActive { composes: floorPillHalfPointActive from "./floor.module.css"; }
-.floorSection { composes: floorSection from "./floor.module.css"; }
-.floorSectionBody { composes: floorSectionBody from "./floor.module.css"; }
-.floorSectionDrenched { composes: floorSectionDrenched from "./floor.module.css"; }
-.floorSectionHeader { composes: floorSectionHeader from "./floor.module.css"; }
-.floorSectionHeaderDrenched { composes: floorSectionHeaderDrenched from "./floor.module.css"; }
-.floorSectionSubtitle { composes: floorSectionSubtitle from "./floor.module.css"; }
-.floorSectionSubtitleDrenched { composes: floorSectionSubtitleDrenched from "./floor.module.css"; }
-.floorSectionTitle { composes: floorSectionTitle from "./floor.module.css"; }
-.floorSectionTitleDrenched { composes: floorSectionTitleDrenched from "./floor.module.css"; }
+.floorContent {
+  flex: 1;
+  padding: 22px 18px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.floorDesktopGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.floorDesktopMain,
+.floorDesktopSide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.floorNowLayout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  width: 100%;
+}
+
+.floorPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--text-sm-plus);
+  font-weight: 700;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.floorPillActive {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
+  color: var(--gold-dark);
+  font-weight: 400;
+}
+
+.floorPillHalfPointActive {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
+  color: var(--gold-dark);
+  font-weight: 400;
+}
+
+.floorSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.floorSectionBody {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card-tight);
+}
+
+.floorSectionDrenched {
+  border-color: color-mix(in srgb, var(--charcoal-900) 14%, var(--border));
+}
+
+.floorSectionHeader {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-card-tight);
+}
+
+.floorSectionHeaderDrenched {
+  background: var(--charcoal-900);
+  border-bottom-color: color-mix(in srgb, var(--ivory-100) 12%, transparent);
+}
+
+.floorSectionSubtitle {
+  margin: 0;
+  font-size: var(--text-sm-plus);
+  color: var(--foreground-muted);
+}
+
+.floorSectionSubtitleDrenched {
+  color: color-mix(in srgb, var(--ivory-100) 62%, transparent);
+}
+
+.floorSectionTitle {
+  margin: 0 0 2px;
+  font-size: var(--text-base);
+  font-weight: 800;
+}
+
+.floorSectionTitleDrenched {
+  color: var(--ivory-100);
+}
 
 .shiftSummary {
   flex: 1;
@@ -82,17 +176,84 @@
   padding: 0;
 }
 
-.shiftSlotCard { composes: shiftSlotCard from "./floor.module.css"; }
+.casinoClosed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.casinoClosedTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--ivory-100) 55%, transparent);
+}
+
+.casinoClosedSub {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ivory-100) 35%, transparent);
+}
+
+.shiftSlotCard {
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--charcoal-500) 16%, var(--ivory-100));
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+}
 .shiftSlotCard:last-child {
   border-bottom: none;
 }
 
-.shiftCurrent { composes: shiftCurrent from "./floor.module.css"; }
-.shiftPast { composes: shiftPast from "./floor.module.css"; }
-.shiftSlotHeader { composes: shiftSlotHeader from "./floor.module.css"; }
-.shiftTimeCol { composes: shiftTimeCol from "./floor.module.css"; }
-.shiftTimeLabel { composes: shiftTimeLabel from "./floor.module.css"; }
-.shiftNowPip { composes: shiftNowPip from "./floor.module.css"; }
+.shiftCurrent {
+  background: color-mix(in srgb, var(--ivory-100) 98%, var(--gold-light) 2%);
+}
+
+.shiftPast {
+  opacity: 0.52;
+}
+
+.shiftSlotHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-card);
+  padding: 22px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shiftTimeCol {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 58px;
+}
+
+.shiftTimeLabel {
+  font-size: var(--text-md-plus);
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.shiftNowPip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+}
 
 .shiftDealerAvatar {
   width: 32px;

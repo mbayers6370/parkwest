@@ -1,13 +1,84 @@
-.floorContent { composes: floorContent from "../floor.module.css"; }
-.floorFilterRow { composes: floorFilterRow from "../floor.module.css"; }
-.floorPill { composes: floorPill from "../floor.module.css"; }
-.floorPillActive { composes: floorPillActive from "../floor.module.css"; }
-.floorPillHalfPointActive { composes: floorPillHalfPointActive from "../floor.module.css"; }
-.floorSection { composes: floorSection from "../floor.module.css"; }
-.floorSectionBody { composes: floorSectionBody from "../floor.module.css"; }
-.floorSectionHeader { composes: floorSectionHeader from "../floor.module.css"; }
-.floorSectionSubtitle { composes: floorSectionSubtitle from "../floor.module.css"; }
-.floorSectionTitle { composes: floorSectionTitle from "../floor.module.css"; }
+.floorContent {
+  flex: 1;
+  padding: 22px 18px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.floorFilterRow {
+  display: flex;
+  gap: var(--gap-card-tight);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.floorPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--text-sm-plus);
+  font-weight: 700;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.floorPillActive {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
+  color: var(--gold-dark);
+  font-weight: 400;
+}
+
+.floorPillHalfPointActive {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
+  color: var(--gold-dark);
+  font-weight: 400;
+}
+
+.floorSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.floorSectionBody {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card-tight);
+}
+
+.floorSectionHeader {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-card-tight);
+}
+
+.floorSectionSubtitle {
+  margin: 0;
+  font-size: var(--text-sm-plus);
+  color: var(--foreground-muted);
+}
+
+.floorSectionTitle {
+  margin: 0 0 2px;
+  font-size: var(--text-base);
+  font-weight: 800;
+}
 
 .floorLogLayout {
   width: 100%;
@@ -124,14 +195,23 @@
 }
 
 .floorLogSearch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  position: relative;
+  display: block;
   color: var(--foreground-muted);
 }
 
-.floorLogSearch :global(.text-input) {
+.floorLogSearchInput {
   width: 100%;
+  padding-left: 34px;
+}
+
+.floorLogSearchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--foreground-muted);
 }
 
 .floorLogEmpty {
