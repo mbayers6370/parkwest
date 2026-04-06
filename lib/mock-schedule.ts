@@ -1,4 +1,4 @@
-export type ScheduleStatus = "scheduled" | "off";
+export type ScheduleStatus = "scheduled" | "off" | "ro" | "pto";
 
 export type ScheduleEntry = {
   id: string;
@@ -13,39 +13,148 @@ export type ScheduleEntry = {
 
 export const SCHEDULE_STORAGE_KEY = "parkwest-mock-schedule";
 
-export const DEFAULT_SCHEDULE: ScheduleEntry[] = [
-  { id: "matt-0412", employeeName: "Matthew Bayers", shiftDate: "2026-04-12", dayShort: "Sat", dayLabel: "Saturday, April 12", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "matt-0413", employeeName: "Matthew Bayers", shiftDate: "2026-04-13", dayShort: "Sun", dayLabel: "Sunday, April 13", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "matt-0414", employeeName: "Matthew Bayers", shiftDate: "2026-04-14", dayShort: "Mon", dayLabel: "Monday, April 14", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "matt-0415", employeeName: "Matthew Bayers", shiftDate: "2026-04-15", dayShort: "Tue", dayLabel: "Tuesday, April 15", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "matt-0416", employeeName: "Matthew Bayers", shiftDate: "2026-04-16", dayShort: "Wed", dayLabel: "Wednesday, April 16", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "matt-0417", employeeName: "Matthew Bayers", shiftDate: "2026-04-17", dayShort: "Thu", dayLabel: "Thursday, April 17", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "matt-0418", employeeName: "Matthew Bayers", shiftDate: "2026-04-18", dayShort: "Fri", dayLabel: "Friday, April 18", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
+// ---------------------------------------------------------------------------
+// Week definitions
+// ---------------------------------------------------------------------------
 
-  { id: "janelle-0412", employeeName: "Janelle Rivera", shiftDate: "2026-04-12", dayShort: "Sat", dayLabel: "Saturday, April 12", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "janelle-0413", employeeName: "Janelle Rivera", shiftDate: "2026-04-13", dayShort: "Sun", dayLabel: "Sunday, April 13", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "janelle-0414", employeeName: "Janelle Rivera", shiftDate: "2026-04-14", dayShort: "Mon", dayLabel: "Monday, April 14", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "janelle-0415", employeeName: "Janelle Rivera", shiftDate: "2026-04-15", dayShort: "Tue", dayLabel: "Tuesday, April 15", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "janelle-0416", employeeName: "Janelle Rivera", shiftDate: "2026-04-16", dayShort: "Wed", dayLabel: "Wednesday, April 16", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "janelle-0417", employeeName: "Janelle Rivera", shiftDate: "2026-04-17", dayShort: "Thu", dayLabel: "Thursday, April 17", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "janelle-0418", employeeName: "Janelle Rivera", shiftDate: "2026-04-18", dayShort: "Fri", dayLabel: "Friday, April 18", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-
-  { id: "marcus-0412", employeeName: "Marcus Tran", shiftDate: "2026-04-12", dayShort: "Sat", dayLabel: "Saturday, April 12", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "marcus-0413", employeeName: "Marcus Tran", shiftDate: "2026-04-13", dayShort: "Sun", dayLabel: "Sunday, April 13", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "marcus-0414", employeeName: "Marcus Tran", shiftDate: "2026-04-14", dayShort: "Mon", dayLabel: "Monday, April 14", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "marcus-0415", employeeName: "Marcus Tran", shiftDate: "2026-04-15", dayShort: "Tue", dayLabel: "Tuesday, April 15", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "marcus-0416", employeeName: "Marcus Tran", shiftDate: "2026-04-16", dayShort: "Wed", dayLabel: "Wednesday, April 16", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "marcus-0417", employeeName: "Marcus Tran", shiftDate: "2026-04-17", dayShort: "Thu", dayLabel: "Thursday, April 17", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "marcus-0418", employeeName: "Marcus Tran", shiftDate: "2026-04-18", dayShort: "Fri", dayLabel: "Friday, April 18", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-
-  { id: "susan-0412", employeeName: "Susan Tran", shiftDate: "2026-04-12", dayShort: "Sat", dayLabel: "Saturday, April 12", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "susan-0413", employeeName: "Susan Tran", shiftDate: "2026-04-13", dayShort: "Sun", dayLabel: "Sunday, April 13", shiftTime: "2:00 PM – 10:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "susan-0414", employeeName: "Susan Tran", shiftDate: "2026-04-14", dayShort: "Mon", dayLabel: "Monday, April 14", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "susan-0415", employeeName: "Susan Tran", shiftDate: "2026-04-15", dayShort: "Tue", dayLabel: "Tuesday, April 15", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "susan-0416", employeeName: "Susan Tran", shiftDate: "2026-04-16", dayShort: "Wed", dayLabel: "Wednesday, April 16", shiftTime: "10:00 AM – 6:00 PM", dept: "Dealer", status: "scheduled" },
-  { id: "susan-0417", employeeName: "Susan Tran", shiftDate: "2026-04-17", dayShort: "Thu", dayLabel: "Thursday, April 17", shiftTime: "OFF", dept: "", status: "off" },
-  { id: "susan-0418", employeeName: "Susan Tran", shiftDate: "2026-04-18", dayShort: "Fri", dayLabel: "Friday, April 18", shiftTime: "OFF", dept: "", status: "off" },
+const WEEK1_DAYS = [
+  { iso: "2026-03-28", dayShort: "Sat", dayLabel: "Saturday, March 28" },
+  { iso: "2026-03-29", dayShort: "Sun", dayLabel: "Sunday, March 29" },
+  { iso: "2026-03-30", dayShort: "Mon", dayLabel: "Monday, March 30" },
+  { iso: "2026-03-31", dayShort: "Tue", dayLabel: "Tuesday, March 31" },
+  { iso: "2026-04-01", dayShort: "Wed", dayLabel: "Wednesday, April 1" },
+  { iso: "2026-04-02", dayShort: "Thu", dayLabel: "Thursday, April 2" },
+  { iso: "2026-04-03", dayShort: "Fri", dayLabel: "Friday, April 3" },
 ];
+
+const WEEK2_DAYS = [
+  { iso: "2026-04-04", dayShort: "Sat", dayLabel: "Saturday, April 4" },
+  { iso: "2026-04-05", dayShort: "Sun", dayLabel: "Sunday, April 5" },
+  { iso: "2026-04-06", dayShort: "Mon", dayLabel: "Monday, April 6" },
+  { iso: "2026-04-07", dayShort: "Tue", dayLabel: "Tuesday, April 7" },
+  { iso: "2026-04-08", dayShort: "Wed", dayLabel: "Wednesday, April 8" },
+  { iso: "2026-04-09", dayShort: "Thu", dayLabel: "Thursday, April 9" },
+  { iso: "2026-04-10", dayShort: "Fri", dayLabel: "Friday, April 10" },
+];
+
+// ---------------------------------------------------------------------------
+// Shift time ranges (:45 starts with top-of-hour end times)
+// Sunday 7:45p ends at 2:00 AM due to casino closure — use "7p_sun"
+// ---------------------------------------------------------------------------
+
+const SHIFT_TIMES: Record<string, string> = {
+  "7a":     "7:45 AM – 4:00 PM",
+  "9a":     "9:45 AM – 6:00 PM",
+  "11a":    "11:45 AM – 8:00 PM",
+  "1p":     "1:45 PM – 10:00 PM",
+  "3p":     "3:45 PM – 12:00 AM",
+  "5p":     "5:45 PM – 2:00 AM",
+  "7p":     "7:45 PM – 4:00 AM",
+  "9p":     "9:45 PM – 6:00 AM",
+  "11p":    "11:45 PM – 8:00 AM",
+  "7p_sun": "7:45 PM – 2:00 AM",
+  "off":    "OFF",
+  "ro":     "RO",
+  "pto":    "PTO",
+};
+
+function shiftStatus(key: string): ScheduleStatus {
+  if (key === "ro")  return "ro";
+  if (key === "pto") return "pto";
+  if (key === "off") return "off";
+  return "scheduled";
+}
+
+function buildWeekEntries(
+  name: string,
+  prefix: string,
+  dept: string,
+  days: typeof WEEK1_DAYS,
+  shifts: string[],
+): ScheduleEntry[] {
+  return days.map((day, i) => {
+    const raw = shifts[i];
+    // Sunday (i === 1): 7p becomes 7p_sun — casino closes at 2 AM
+    const key = i === 1 && raw === "7p" ? "7p_sun" : raw;
+    const status = shiftStatus(raw);
+    return {
+      id: `${prefix}-${day.iso.replace(/-/g, "").slice(4)}`,
+      employeeName: name,
+      shiftDate: day.iso,
+      dayShort: day.dayShort,
+      dayLabel: day.dayLabel,
+      shiftTime: SHIFT_TIMES[key] ?? "OFF",
+      dept: status === "scheduled" ? dept : "",
+      status,
+    };
+  });
+}
+
+function row(
+  name: string,
+  prefix: string,
+  dept: string,
+  w1: string[],
+  w2: string[],
+): ScheduleEntry[] {
+  return [
+    ...buildWeekEntries(name, prefix, dept, WEEK1_DAYS, w1),
+    ...buildWeekEntries(name, prefix, dept, WEEK2_DAYS, w2),
+  ];
+}
+
+const D = "Dealer";
+const DR = "Dual Rate";
+
+// ---------------------------------------------------------------------------
+// Schedule data — transcribed from printed Excel schedule
+// Columns: [Sat, Sun, Mon, Tue, Wed, Thu, Fri]
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_SCHEDULE: ScheduleEntry[] = [
+  // eslint-disable-next-line prettier/prettier
+  ...row("Hong",      "hong",    D,  ["off","ro", "7p", "7p", "7p", "off","off"], ["off","7p", "7p", "7p", "7p", "off","off"]),
+  ...row("Susan",     "susan",   D,  ["off","off","7p", "7p", "7p", "7p", "7p"],  ["off","off","7p", "7p", "7p", "7p", "7p" ]),
+  ...row("Sinnoun",   "sinnoun", D,  ["off","off","9p", "9p", "9p", "off","off"], ["off","off","9p", "9p", "9p", "9p", "off"]),
+  ...row("Derek",     "derek",   D,  ["off","off","off","9p", "9p", "9p", "9p"],  ["off","off","off","9p", "9p", "9p", "9p" ]),
+  ...row("Bobby",     "bobby",   D,  ["off","off","off","off","off","off","off"],  ["off","off","off","off","off","9p", "off"]),
+  ...row("Dee",       "dee",     D,  ["9p", "7p", "9p", "off","off","off","off"], ["9p", "7p", "9p", "off","off","off","off"]),
+  ...row("Lee",       "lee",     D,  ["off","off","9p", "9p", "9p", "9p", "9p"],  ["off","off","off","off","off","off","off"]),
+  ...row("Kevin D",   "kevind",  D,  ["5p", "off","9p", "off","9p", "9p", "9p"],  ["5p", "off","9p", "9p", "9p", "5p", "9p" ]),
+  ...row("Johnny P",  "johnnp",  D,  ["off","off","off","off","9p", "9p", "off"],  ["off","off","off","off","11p","5p", "9p" ]),
+  ...row("Ngoc",      "ngoc",    DR, ["off","off","3p", "3p", "off","off","3p"],   ["3p", "3p", "off","3p", "11p","5p", "off"]),
+  ...row("Duy",       "duy",     D,  ["9p", "off","off","11p","11p","off","3p"],   ["7p", "off","9p", "off","off","off","3p" ]),
+  ...row("Quynh",     "quynh",   D,  ["9p", "5p", "off","11p","11p","11p","9p"],   ["9p", "off","off","9p", "11p","9p", "11p"]),
+  ...row("Matt",      "matt",    D,  ["5p", "off","3p", "off","11p","11p","11p"],  ["3p", "3p", "5p", "off","off","11a","3p" ]),
+  ...row("Jia",       "jia",     D,  ["9p", "off","9p", "off","off","off","5p"],   ["9p", "off","5p", "off","off","11a","3p" ]),
+  ...row("Thomas",    "thomas",  D,  ["3p", "3p", "9p", "3p", "11p","off","off"],  ["off","3p", "ro", "ro", "off","off","11p"]),
+  ...row("Thy Thy",   "thythy",  D,  ["pto","off","off","pto","11p","11p","off"],   ["11p","off","off","11p","11p","11p","off"]),
+  ...row("Ryan",      "ryan",    D,  ["11p","7p", "11p","off","11p","11p","11p"],  ["11p","7p", "11p","off","off","off","11p"]),
+  ...row("Tim P",     "timp",    DR, ["5p", "off","off","off","11p","11p","11p"],   ["9p", "off","off","11p","11p","11p","11p"]),
+  ...row("Tola",      "tola",    D,  ["7p", "off","off","11p","11p","11p","11p"],  ["7p", "off","off","11p","11p","11p","11p"]),
+  ...row("Linda S",   "lindas",  D,  ["off","off","off","off","off","off","off"],  ["off","off","off","off","off","off","off"]),
+  ...row("MhieMhie",  "mhie",    D,  ["9p", "off","11p","11p","off","9p", "11p"],  ["11p","off","9p", "11p","off","off","11p"]),
+  ...row("Thong",     "thong",   D,  ["3p", "3p", "11p","11p","off","11p","11p"],  ["3p", "3p", "5p", "off","11p","11p","off"]),
+  ...row("Kim",       "kim",     D,  ["7p", "5p", "11p","off","off","11p","off"],  ["11p","7p", "11p","5p", "off","11p","11p"]),
+  ...row("Fanny",     "fanny",   D,  ["ro", "off","off","off","11p","11p","11p"],  ["3p", "3p", "off","off","ro", "ro", "11p"]),
+  ...row("Chhaya",    "chhaya",  D,  ["11p","5p", "off","off","11p","11p","11p"],  ["11p","5p", "off","off","11p","off","off"]),
+  ...row("Victor",    "victor",  D,  ["off","off","11p","11p","11p","off","off"],  ["5p", "3p", "11p","11p","11p","off","off"]),
+  ...row("Jessica T", "jesst",   D,  ["11p","7p", "11p","11p","11p","off","off"],  ["11p","5p", "11p","11p","11p","off","off"]),
+  ...row("Ada",       "ada",     D,  ["11p","7p", "11p","11p","11p","off","off"],  ["11p","7p", "11p","11p","off","off","off"]),
+  ...row("Jesse",     "jesse",   D,  ["11p","7p", "11p","11p","off","off","5p"],   ["ro", "7p", "11p","11p","off","11p","11p"]),
+  ...row("Pha",       "pha",     D,  ["11p","off","off","11p","off","11p","11p"],  ["11p","off","off","11p","off","11p","7a" ]),
+  ...row("Houa",      "houa",    D,  ["11p","off","off","11p","off","11p","11p"],  ["ro", "off","11p","off","9p", "11p","off"]),
+  ...row("Nelson",    "nelson",  D,  ["11p","7p", "11p","pto","off","11p","11p"],  ["11p","7p", "11p","off","off","11p","off"]),
+  ...row("Erica",     "erica",   D,  ["11p","5p", "11p","off","off","off","off"],  ["11p","off","7p", "off","off","off","11p"]),
+  ...row("Keven",     "keven",   D,  ["11p","7p", "11p","off","off","off","11p"],  ["11p","7p", "11p","off","off","off","off"]),
+  ...row("Linda V",   "lindav",  D,  ["11p","7p", "11p","off","off","7p", "off"],  ["11p","7p", "11p","11p","off","off","off"]),
+  ...row("Johnny S",  "johnns",  D,  ["11p","7p", "11p","11p","9p", "off","7p"],   ["11p","7p", "11p","11p","off","off","off"]),
+  ...row("Franky",    "franky",  D,  ["11p","7p", "11p","11p","off","off","11p"],  ["11p","7p", "11p","11p","off","off","off"]),
+];
+
+// ---------------------------------------------------------------------------
+// Utility functions
+// ---------------------------------------------------------------------------
 
 export function getScheduleEntriesForEmployee(
   entries: ScheduleEntry[],
@@ -74,11 +183,25 @@ export function getAllEmployeeNames(entries: ScheduleEntry[]) {
   );
 }
 
-export function parseShiftRange(
-  shiftDate: string,
-  shiftTime: string,
-) {
-  if (shiftTime === "OFF") {
+export function getCurrentWeekRange(baseDate: Date) {
+  const date = new Date(baseDate);
+  date.setHours(12, 0, 0, 0);
+
+  const daysFromSaturday = (date.getDay() + 1) % 7;
+  const weekStartDate = new Date(date);
+  weekStartDate.setDate(date.getDate() - daysFromSaturday);
+
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+  return {
+    weekStartIso: toIsoDate(weekStartDate),
+    weekEndIso: toIsoDate(weekEndDate),
+  };
+}
+
+export function parseShiftRange(shiftDate: string, shiftTime: string) {
+  if (shiftTime === "OFF" || shiftTime === "RO" || shiftTime === "PTO") {
     return null;
   }
 
@@ -107,6 +230,10 @@ function parseDateTime(shiftDate: string, timeLabel: string) {
   return new Date(year, month - 1, day, hour, rawMinute ?? 0, 0, 0);
 }
 
+function toIsoDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export function getMostRecentWorkedShiftEnd(
   entries: ScheduleEntry[],
   employeeName: string,
@@ -115,7 +242,9 @@ export function getMostRecentWorkedShiftEnd(
   const workedEntries = entries
     .filter(
       (entry) =>
-        entry.employeeName === employeeName && entry.status === "scheduled" && entry.shiftTime !== "OFF",
+        entry.employeeName === employeeName &&
+        entry.status === "scheduled" &&
+        entry.shiftTime !== "OFF",
     )
     .map((entry) => parseShiftRange(entry.shiftDate, entry.shiftTime))
     .filter((range): range is NonNullable<typeof range> => Boolean(range))

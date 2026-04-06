@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { CircleAlert, CloudUpload, FileSpreadsheet } from "lucide-react";
 
 type SchedulePreview = {
   fileName: string;
@@ -69,30 +70,74 @@ export function AdminScheduleImport() {
 
   return (
     <div className="stack">
-      <div className="mini-card">
-        <p className="mini-label">Schedule Import</p>
-        <p className="mini-title">Upload an Excel file for preview</p>
-        <p className="mini-copy">
-          This first pass reads the workbook and shows the manager a sheet preview before we wire
-          in publishing and alias review.
-        </p>
-      </div>
-
       <form className="stack" onSubmit={handleSubmit}>
-        <label className="field-label" htmlFor="schedule-file">
-          Spreadsheet file
-        </label>
-        <input
-          id="schedule-file"
-          className="file-input"
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-        />
+        <section className="schedule-import-upload-card">
+          <div className="schedule-import-upload-head">
+            <div className="schedule-import-upload-head-icon">
+              <CloudUpload size={24} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="schedule-import-upload-title">Upload schedule file</p>
+              <p className="schedule-import-upload-subtitle">
+                Select the weekly spreadsheet and preview it before publishing.
+              </p>
+            </div>
+          </div>
 
-        <button className="primary-button" type="submit" disabled={loading}>
-          {loading ? "Reading file..." : "Preview spreadsheet"}
-        </button>
+          <label className="schedule-import-dropzone" htmlFor="schedule-file">
+            <input
+              id="schedule-file"
+              className="schedule-import-file-input"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+
+            <div className="schedule-import-dropzone-icon">
+              <FileSpreadsheet size={22} aria-hidden="true" />
+            </div>
+            <p className="schedule-import-dropzone-title">
+              Choose a file or drag and drop it here
+            </p>
+            <p className="schedule-import-dropzone-copy">
+              Excel and CSV formats supported for weekly schedule uploads.
+            </p>
+            <span className="secondary-button schedule-import-dropzone-button">
+              Browse File
+            </span>
+          </label>
+
+          <div className="schedule-import-actions">
+            {file ? (
+              <div className="schedule-import-selected-file">
+                <div className="schedule-import-selected-file-icon">
+                  <FileSpreadsheet size={18} aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="schedule-import-selected-file-name">{file.name}</p>
+                  <p className="schedule-import-selected-file-meta">Ready for preview</p>
+                </div>
+              </div>
+            ) : (
+              <div className="schedule-import-selected-file schedule-import-selected-fileEmpty">
+                <div>
+                  <p className="schedule-import-selected-file-name">No file selected</p>
+                  <p className="schedule-import-selected-file-meta">
+                    Choose a spreadsheet to preview it below.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button
+              className="primary-button schedule-import-submit"
+              type="submit"
+              disabled={loading || !file}
+            >
+              {loading ? "Reading file..." : "Preview Spreadsheet"}
+            </button>
+          </div>
+        </section>
       </form>
 
       {mockMode ? (
@@ -106,7 +151,15 @@ export function AdminScheduleImport() {
         </div>
       ) : null}
 
-      {error ? <p className="status-text error">{error}</p> : null}
+      {error ? (
+        <div className="notice-card danger">
+          <CircleAlert size={16} aria-hidden="true" />
+          <div>
+            <p className="notice-title">Import error</p>
+            <p className="notice-body">{error}</p>
+          </div>
+        </div>
+      ) : null}
       {success ? <p className="status-text success">{success}</p> : null}
 
       {preview ? (

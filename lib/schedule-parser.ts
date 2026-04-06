@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { normalizeCellValue } from "@/lib/workbook-utils";
 
 export type SchedulePreview = {
   fileName: string;
@@ -12,22 +13,6 @@ export type SchedulePreview = {
 export type ParsedScheduleWorkbook = SchedulePreview & {
   rows: Record<string, string>[];
 };
-
-function normalizeCellValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-
-  return JSON.stringify(value);
-}
 
 export function parseScheduleWorkbook(
   fileName: string,

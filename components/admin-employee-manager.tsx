@@ -19,6 +19,11 @@ type EmployeeSearchResult = {
   }[];
 };
 
+type AdminEmployeeDirectoryProps = {
+  propertyKey?: string;
+  propertyName?: string;
+};
+
 type EmployeeResponse = {
   employees: EmployeeSearchResult[];
   error?: string;
@@ -552,6 +557,160 @@ export function AdminEmployeeManager({
 
         {editMessage ? <p className="status-text success">{editMessage}</p> : null}
         {resetMessage ? <p className="status-text success">{resetMessage}</p> : null}
+      </section>
+    </div>
+  );
+}
+
+export function AdminEmployeeDirectory({
+  propertyKey,
+  propertyName,
+}: AdminEmployeeDirectoryProps) {
+  const [query, setQuery] = useState("");
+  const [employees, setEmployees] = useState<EmployeeSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mockMode, setMockMode] = useState(false);
+
+  const employeeDirectoryUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("all", "1");
+
+    if (propertyKey) {
+      params.set("propertyKey", propertyKey);
+    }
+
+    return `/api/admin/employees?${params.toString()}`;
+  }, [propertyKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadEmployees() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(employeeDirectoryUrl, { signal: controller.signal });
+        const data = (await response.json()) as EmployeeResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Employee directory failed to load.");
+        }
+
+        setEmployees(data.employees);
+        setMockMode(Boolean(data.mockMode));
+      } catch (directoryError) {
+        if ((directoryError as Error).name === "AbortError") {
+          return;
+        }
+
+        setEmployees([]);
+        setError((directoryError as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEmployees();
+
+    return () => controller.abort();
+  }, [employeeDirectoryUrl]);
+
+  const filteredEmployees = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return employees;
+    }
+
+    return employees.filter((employee) =>
+      [
+        employee.displayName,
+        employee.firstName ?? "",
+        employee.lastName ?? "",
+        employee.employeeId,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [employees, query]);
+
+  return (
+    <div className="stack">
+      {mockMode ? (
+        <div className="result-card">
+          <p className="mini-label">Mock Mode</p>
+          <p className="mini-title">Employee directory is reading mock data</p>
+          <p className="mini-copy">
+            You can still test the full directory view
+            {propertyName ? ` for ${propertyName}` : ""}.
+          </p>
+        </div>
+      ) : null}
+
+      <section className="result-card">
+        <p className="mini-label">Employee Directory</p>
+        <p className="mini-title">All employees</p>
+        <p className="mini-copy">
+          Search the full employee list
+          {propertyName ? ` for ${propertyName}` : ""}. The list filters live as you type.
+        </p>
+
+        <div className="field-stack">
+          <label className="field-label" htmlFor="employee-directory-search">
+            Search employees
+          </label>
+          <input
+            id="employee-directory-search"
+            className="text-input"
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Start typing a name or employee ID"
+          />
+        </div>
+
+        {loading ? <p className="status-text">Loading employees...</p> : null}
+        {error ? <p className="status-text error">{error}</p> : null}
+
+        {!loading && !error ? (
+          filteredEmployees.length > 0 ? (
+            <div className="stack compact-stack employee-directory-results">
+              {filteredEmployees.map((employee) => (
+                <article key={employee.id} className="result-card nested-card">
+                  <div className="result-card-header">
+                    <div>
+                      <p className="result-title">{employee.displayName}</p>
+                      <p className="result-subtitle">Employee ID {employee.employeeId}</p>
+                    </div>
+                  </div>
+
+                  <div className="badge-row">
+                    {employee.departmentAssignments.length > 0 ? (
+                      employee.departmentAssignments.map((assignment) => (
+                        <span
+                          key={`${employee.id}-${assignment.department.departmentName}`}
+                          className={`badge ${assignment.isPrimary ? "success" : "warning"}`}
+                        >
+                          {assignment.department.departmentName}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="badge warning">No department</span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p className="mini-title">No employees found.</p>
+              <p className="mini-copy">Try another name or employee ID.</p>
+            </div>
+          )
+        ) : null}
       </section>
     </div>
   );

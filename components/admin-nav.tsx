@@ -45,11 +45,13 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Overview", icon: ICONS.overview, exact: true },
   { href: "/admin/employees", label: "Employees", icon: ICONS.employees },
-  { href: "/admin/schedule-import", label: "Schedule Import", icon: ICONS.scheduleImport },
   { href: "/admin/requests", label: "Requests", icon: ICONS.requests },
   { href: "/admin/schedule-manager", label: "Schedule Manager", icon: ICONS.scheduleManager },
-  { href: "/admin/rules", label: "Rules & Settings", icon: ICONS.rules },
   { href: "/admin/audit-log", label: "Audit Log", icon: ICONS.auditLog },
+];
+
+const UTILITY_NAV_ITEMS: NavItem[] = [
+  { href: "/admin/rules", label: "Rules & Settings", icon: ICONS.rules },
 ];
 
 const BOTTOM_TABS: NavItem[] = [
@@ -100,6 +102,22 @@ export function AdminNav() {
             </Link>
           ))}
         </nav>
+
+        <div className="admin-sidebar-utility">
+          {UTILITY_NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`admin-nav-link${isActive(item.href, item.exact) ? " active" : ""}`}
+            >
+              <item.icon size={16} aria-hidden="true" />
+              <span>{item.label}</span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="admin-nav-badge">{item.badge}</span>
+              )}
+            </Link>
+          ))}
+        </div>
 
         <div className="admin-sidebar-footer">
           <p className="admin-nav-section-label">Switch Workspace</p>

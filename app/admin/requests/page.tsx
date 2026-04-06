@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getAllTimeOffRequests,
   TIME_OFF_REASON_LABELS,
@@ -8,8 +8,14 @@ import {
   TIME_OFF_WINDOW_LABELS,
   groupRequestsBySaturdayWeek,
   type TimeOffRequest,
+  type TimeOffStatus,
 } from "@/lib/time-off-requests";
-import { loadStoredTimeOffRequests } from "@/lib/time-off-request-store";
+import {
+  loadStoredTimeOffRequests,
+  saveStoredTimeOffRequests,
+  TIME_OFF_REQUESTS_UPDATED_EVENT,
+} from "@/lib/time-off-request-store";
+import { EMPLOYEE_DEPARTMENT_OPTIONS } from "@/lib/employee-departments";
 
 const STATUS_CLASS = {
   pending: "warning",
@@ -17,16 +23,125 @@ const STATUS_CLASS = {
   not_approved: "danger",
 } as const;
 
+type EmployeeDirectoryEntry = {
+  id: string;
+  employeeId: string;
+  displayName: string;
+  firstName?: string;
+  lastName?: string;
+  departmentAssignments: {
+    isPrimary: boolean;
+    department: {
+      departmentName: string;
+    };
+  }[];
+};
+
+type EmployeeDirectoryResponse = {
+  employees: EmployeeDirectoryEntry[];
+  error?: string;
+};
+
 export default function AdminRequestsPage() {
   const [storedRequests, setStoredRequests] = useState<TimeOffRequest[]>([]);
+  const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<TimeOffStatus>("pending");
+  const [activeDepartment, setActiveDepartment] = useState<string>("all");
 
   useEffect(() => {
-    setStoredRequests(loadStoredTimeOffRequests());
+    const syncStoredRequests = () => {
+      setStoredRequests(loadStoredTimeOffRequests());
+    };
+
+    syncStoredRequests();
+    window.addEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncStoredRequests);
+    window.addEventListener("storage", syncStoredRequests);
+
+    return () => {
+      window.removeEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncStoredRequests);
+      window.removeEventListener("storage", syncStoredRequests);
+    };
   }, []);
 
-  const requestGroups = groupRequestsBySaturdayWeek(
-    getAllTimeOffRequests(storedRequests),
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadEmployees() {
+      try {
+        const response = await fetch("/api/admin/employees?all=1", {
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as EmployeeDirectoryResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Employee directory failed to load.");
+        }
+
+        setEmployees(data.employees);
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return;
+        }
+
+        setEmployees([]);
+      }
+    }
+
+    loadEmployees();
+
+    return () => controller.abort();
+  }, []);
+
+  const allRequests = useMemo(
+    () => getAllTimeOffRequests(storedRequests),
+    [storedRequests],
   );
+  const requestsWithDepartment = useMemo(
+    () =>
+      allRequests.map((request) => ({
+        ...request,
+        departmentLabel: getRequestDepartmentLabel(request, employees),
+      })),
+    [allRequests, employees],
+  );
+  const filteredRequests = useMemo(
+    () =>
+      requestsWithDepartment.filter((request) => {
+        if (request.status !== activeTab) {
+          return false;
+        }
+
+        if (activeDepartment === "all") {
+          return true;
+        }
+
+        return request.departmentLabel === activeDepartment;
+      }),
+    [activeDepartment, activeTab, requestsWithDepartment],
+  );
+  const requestGroups = useMemo(
+    () => groupRequestsBySaturdayWeek(filteredRequests),
+    [filteredRequests],
+  );
+
+  function updateRequestStatus(requestId: string, status: Exclude<TimeOffStatus, "pending">) {
+    const existingStoredRequest = storedRequests.find((request) => request.id === requestId);
+    const sourceRequest =
+      existingStoredRequest ?? allRequests.find((request) => request.id === requestId);
+
+    if (!sourceRequest) {
+      return;
+    }
+
+    const nextStoredRequests = existingStoredRequest
+      ? storedRequests.map((request) =>
+          request.id !== requestId ? request : { ...request, status },
+        )
+      : [{ ...sourceRequest, status }, ...storedRequests];
+
+    setStoredRequests(nextStoredRequests);
+    saveStoredTimeOffRequests(nextStoredRequests);
+  }
 
   return (
     <>
@@ -37,13 +152,60 @@ export default function AdminRequestsPage() {
           Review employee time-off requests grouped by Saturday-start weeks.
         </p>
         <nav className="admin-page-tabs" aria-label="Request filters">
-          <span className="admin-page-tab active">Weekly Queue</span>
-          <span className="admin-page-tab">Approved</span>
-          <span className="admin-page-tab">Not Approved</span>
+          <button
+            type="button"
+            className={`admin-page-tab${activeTab === "pending" ? " active" : ""}`}
+            onClick={() => setActiveTab("pending")}
+          >
+            Pending
+          </button>
+          <button
+            type="button"
+            className={`admin-page-tab${activeTab === "approved" ? " active" : ""}`}
+            onClick={() => setActiveTab("approved")}
+          >
+            Approved
+          </button>
+          <button
+            type="button"
+            className={`admin-page-tab${activeTab === "not_approved" ? " active" : ""}`}
+            onClick={() => setActiveTab("not_approved")}
+          >
+            Not Approved
+          </button>
         </nav>
       </header>
 
       <div className="admin-content admin-requests-layout">
+        <div className="admin-page-tabs" aria-label="Department filters">
+          <button
+            type="button"
+            className={`admin-page-tab${activeDepartment === "all" ? " active" : ""}`}
+            onClick={() => setActiveDepartment("all")}
+          >
+            All Departments
+          </button>
+          {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
+            <button
+              key={department.key}
+              type="button"
+              className={`admin-page-tab${activeDepartment === department.name ? " active" : ""}`}
+              onClick={() => setActiveDepartment(department.name)}
+            >
+              {department.name}
+            </button>
+          ))}
+        </div>
+        {requestGroups.length === 0 ? (
+          <section className="admin-request-week">
+            <div className="empty-state">
+              <p className="mini-title">No {TIME_OFF_STATUS_LABELS[activeTab].toLowerCase()} requests.</p>
+              <p className="mini-copy">
+                Requests will move here once they are marked {TIME_OFF_STATUS_LABELS[activeTab].toLowerCase()}.
+              </p>
+            </div>
+          </section>
+        ) : null}
         {requestGroups.map((group) => (
           <section key={group.weekStart} className="admin-request-week">
             <div className="admin-request-week-header">
@@ -101,6 +263,9 @@ export default function AdminRequestsPage() {
                   </div>
 
                   <div className="admin-request-reason-row">
+                    <span className="badge success">
+                      {getRequestDepartmentLabel(request, employees)}
+                    </span>
                     <span className="badge gold">
                       {TIME_OFF_REASON_LABELS[request.reason]}
                     </span>
@@ -112,10 +277,20 @@ export default function AdminRequestsPage() {
                   </div>
 
                   <div className="admin-request-actions">
-                    <button className="secondary-button" type="button">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => updateRequestStatus(request.id, "not_approved")}
+                      disabled={request.status === "not_approved"}
+                    >
                       Not Approved
                     </button>
-                    <button className="primary-button" type="button">
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={() => updateRequestStatus(request.id, "approved")}
+                      disabled={request.status === "approved"}
+                    >
                       Approve
                     </button>
                   </div>
@@ -127,4 +302,52 @@ export default function AdminRequestsPage() {
       </div>
     </>
   );
+}
+
+function getRequestDepartmentLabel(
+  request: TimeOffRequest,
+  employees: EmployeeDirectoryEntry[],
+) {
+  const normalizedRequestName = normalizeName(request.fullName);
+  const requestParts = normalizedRequestName.split(" ").filter(Boolean);
+  const requestLastName = requestParts.at(-1) ?? "";
+  const requestFirstName = requestParts[0] ?? "";
+
+  const directMatch = employees.find((employee) => {
+    const candidateNames = [
+      employee.displayName,
+      `${employee.firstName ?? ""} ${employee.lastName ?? ""}`.trim(),
+    ]
+      .map(normalizeName)
+      .filter(Boolean);
+
+    return candidateNames.includes(normalizedRequestName);
+  });
+
+  const softMatch =
+    directMatch ??
+    employees.find((employee) => {
+      const employeeFirst = normalizeName(employee.firstName ?? "");
+      const employeeLast = normalizeName(employee.lastName ?? "");
+
+      if (!employeeFirst || !employeeLast || employeeLast !== requestLastName) {
+        return false;
+      }
+
+      return (
+        employeeFirst.startsWith(requestFirstName.slice(0, 3)) ||
+        requestFirstName.startsWith(employeeFirst.slice(0, 3))
+      );
+    });
+
+  return (
+    softMatch?.departmentAssignments.find((assignment) => assignment.isPrimary)?.department
+      .departmentName ??
+    softMatch?.departmentAssignments[0]?.department.departmentName ??
+    "Unknown"
+  );
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }

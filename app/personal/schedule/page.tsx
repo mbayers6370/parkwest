@@ -20,6 +20,7 @@ import {
 } from "@/lib/attendance-event-store";
 import {
   getAllEmployeeNames,
+  getCurrentWeekRange,
   getScheduleEntriesForEmployee,
   getScheduleEntryForEmployeeAndDate,
   type ScheduleEntry,
@@ -53,9 +54,7 @@ import { saveStoredSchedule } from "@/lib/mock-schedule-store";
 import shared from "../personal-shared.module.css";
 import styles from "./schedule.module.css";
 
-const CURRENT_EMPLOYEE_NAME = "Matthew Bayers";
-const WEEK_START_ISO = "2026-04-12";
-const WEEK_END_ISO = "2026-04-18";
+const CURRENT_EMPLOYEE_NAME = "Matt";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   scheduled: { label: "Scheduled", cls: "success" },
@@ -84,6 +83,7 @@ export default function PersonalSchedulePage() {
   const [actionNote, setActionNote] = useState("");
   const [selectedDealerName, setSelectedDealerName] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
+  const { weekStartIso, weekEndIso } = useMemo(() => getCurrentWeekRange(new Date()), []);
 
   useEffect(() => {
     const syncStoredEvents = () => {
@@ -133,9 +133,9 @@ export default function PersonalSchedulePage() {
   const scheduleRows = useMemo(
     () =>
       getScheduleEntriesForEmployee(effectiveScheduleEntries, CURRENT_EMPLOYEE_NAME)
-        .filter((entry) => entry.shiftDate >= WEEK_START_ISO && entry.shiftDate <= WEEK_END_ISO)
+        .filter((entry) => entry.shiftDate >= weekStartIso && entry.shiftDate <= weekEndIso)
         .sort((a, b) => a.shiftDate.localeCompare(b.shiftDate)),
-    [effectiveScheduleEntries],
+    [effectiveScheduleEntries, weekEndIso, weekStartIso],
   );
 
   useEffect(() => {
@@ -148,12 +148,12 @@ export default function PersonalSchedulePage() {
     const employeeWeekEvents = getAllAttendanceEvents(storedAttendanceEvents).filter(
       (event) =>
         event.employeeName === CURRENT_EMPLOYEE_NAME &&
-        event.shiftDate >= WEEK_START_ISO &&
-        event.shiftDate <= WEEK_END_ISO,
+        event.shiftDate >= weekStartIso &&
+        event.shiftDate <= weekEndIso,
     );
 
     return getAttendanceSummary(employeeWeekEvents);
-  }, [storedAttendanceEvents]);
+  }, [storedAttendanceEvents, weekEndIso, weekStartIso]);
 
   const shiftsScheduled = scheduleRows.filter((row) => row.status === "scheduled").length;
   const daysOff = scheduleRows.filter((row) => row.status === "off").length;
@@ -280,7 +280,8 @@ export default function PersonalSchedulePage() {
       shiftDayLabel: selectedDay.dayLabel,
       requesterShiftTime: selectedDay.shiftTime,
       targetDealerShiftTime: selectedCandidate.scheduleEntry?.shiftTime ?? "OFF",
-      targetDealerStatus: selectedCandidate.scheduleEntry?.status ?? "off",
+      targetDealerStatus:
+        selectedCandidate.scheduleEntry?.status === "scheduled" ? "scheduled" : "off",
       approvalRoute,
       note: actionNote.trim() || undefined,
       status: approvalRoute === "automatic" ? "approved" : "pending",

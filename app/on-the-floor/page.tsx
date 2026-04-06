@@ -43,6 +43,7 @@ import {
 import {
   applyScheduleOverrides,
   buildShiftTimeRange,
+  formatShiftStartOptionLabel,
   getScheduledDaysForWeek,
   getShiftStartLabel,
   SCHEDULE_OVERRIDE_KIND_LABELS,
@@ -81,15 +82,15 @@ type LineupState = {
 };
 
 const SHIFT_TEMPLATES: Array<{ label: string; hour: number }> = [
-  { label: "8 AM", hour: 8 },
-  { label: "10 AM", hour: 10 },
-  { label: "12 PM", hour: 12 },
-  { label: "2 PM", hour: 14 },
-  { label: "4 PM", hour: 16 },
-  { label: "6 PM", hour: 18 },
-  { label: "8 PM", hour: 20 },
-  { label: "10 PM", hour: 22 },
-  { label: "12 AM", hour: 0 },
+  { label: "7:45 AM", hour: 8 },
+  { label: "9:45 AM", hour: 10 },
+  { label: "11:45 AM", hour: 12 },
+  { label: "1:45 PM", hour: 14 },
+  { label: "3:45 PM", hour: 16 },
+  { label: "5:45 PM", hour: 18 },
+  { label: "7:45 PM", hour: 20 },
+  { label: "9:45 PM", hour: 22 },
+  { label: "11:45 PM", hour: 0 },
 ];
 
 // ─── Display maps ─────────────────────────────────────────────
@@ -112,6 +113,24 @@ const DAY_NAMES   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function shiftOrder(hour: number) { return hour === 0 ? 24 : hour; }
+
+function parseShiftLabelMinutes(label: string) {
+  const [timePart, meridiem] = label.split(" ");
+  const [rawHour, rawMinute = "0"] = timePart.split(":");
+  let hour = Number(rawHour) % 12;
+
+  if (meridiem === "PM") {
+    hour += 12;
+  }
+
+  let totalMinutes = hour * 60 + Number(rawMinute);
+
+  if (hour < 6) {
+    totalMinutes += 24 * 60;
+  }
+
+  return totalMinutes;
+}
 
 function getCurrentTimeMinutes(now: Date): number {
   const hour = now.getHours();
@@ -164,13 +183,13 @@ function getOperatingDate(now: Date) {
   return getOperatingDay(now).date;
 }
 
-function getShiftStartMinutes(hour: number): number {
-  return shiftOrder(hour) * 60;
+function getShiftStartMinutes(label: string): number {
+  return parseShiftLabelMinutes(label);
 }
 
 function getCurrentShiftIdx(slots: ShiftSlot[], currentMinutes: number): number {
   for (let i = 0; i < slots.length; i++) {
-    if (getShiftStartMinutes(slots[i].hour) > currentMinutes) return i;
+    if (getShiftStartMinutes(slots[i].label) > currentMinutes) return i;
   }
   return -1;
 }
@@ -351,7 +370,7 @@ export default function OnTheFloorNowPage() {
     useState<ScheduleOverrideKind>("start_time_change");
   const [selectedScheduleEmployeeName, setSelectedScheduleEmployeeName] = useState("");
   const [scheduleChangeSearch, setScheduleChangeSearch] = useState("");
-  const [scheduleChangeStartLabel, setScheduleChangeStartLabel] = useState<(typeof SHIFT_START_OPTIONS)[number]>("8 AM");
+  const [scheduleChangeStartLabel, setScheduleChangeStartLabel] = useState<(typeof SHIFT_START_OPTIONS)[number]>("7:45 AM");
   const [scheduleChangeNote, setScheduleChangeNote] = useState("");
   const [scheduleChangeMessage, setScheduleChangeMessage] = useState("");
 
@@ -632,7 +651,7 @@ export default function OnTheFloorNowPage() {
         name: dealer.name,
         shiftLabel: slot.label,
         shiftStartTime: slot.label,
-        shiftEndTime: getShiftEndLabel(slot.hour),
+        shiftEndTime: getShiftEndLabel(slot.label),
       })),
     );
   }, [slots]);
@@ -746,10 +765,19 @@ export default function OnTheFloorNowPage() {
           return false;
         }
 
-        return getShiftStartMinutes(slot.hour) > currentMinutes;
+        return getShiftStartMinutes(slot.label) > currentMinutes;
       }),
     [currentMinutes],
   );
+  useEffect(() => {
+    if (availableScheduleStartOptions.length === 0) {
+      return;
+    }
+
+    if (!availableScheduleStartOptions.includes(scheduleChangeStartLabel)) {
+      setScheduleChangeStartLabel(availableScheduleStartOptions[0]);
+    }
+  }, [availableScheduleStartOptions, scheduleChangeStartLabel]);
   const scheduleChangeSixDayFlag = useMemo(() => {
     if (!selectedScheduleEntry) {
       return false;
@@ -838,7 +866,7 @@ export default function OnTheFloorNowPage() {
     );
     setSelectedScheduleEmployeeName("");
     setScheduleChangeSearch("");
-    setScheduleChangeStartLabel("8 AM");
+    setScheduleChangeStartLabel(availableScheduleStartOptions[0] ?? SHIFT_START_OPTIONS[0]);
     setScheduleChangeNote("");
     window.setTimeout(() => setScheduleChangeMessage(""), 4000);
   }
@@ -851,7 +879,7 @@ export default function OnTheFloorNowPage() {
   ) : (
     <div className={styles.floorShiftList}>
       {slots.map((slot, si) => {
-        const shiftStartMinutes = getShiftStartMinutes(slot.hour);
+        const shiftStartMinutes = getShiftStartMinutes(slot.label);
         const isPast    = shiftStartMinutes <= currentMinutes;
         const isCurrent = si === currentIdx;
         const isExpanded = expanded === si;
@@ -1155,9 +1183,9 @@ export default function OnTheFloorNowPage() {
               <div className={`${styles.floorSection} ${styles.floorSectionDrenched} ${styles.floorGiveawayRail}`}>
                 <div className={`${styles.floorSectionHeader} ${styles.floorSectionHeaderDrenched}`}>
                   <div>
-                    <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Shift Giveaways</p>
+                    <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Shift Exchanges</p>
                     <p className={`${styles.floorSectionSubtitle} ${styles.floorSectionSubtitleDrenched}`}>
-                      Pending giveaway requests from dealers.
+                      Pending shift exchange requests from dealers.
                     </p>
                   </div>
                 </div>
@@ -1165,10 +1193,10 @@ export default function OnTheFloorNowPage() {
                   {pendingGiveawayRequests.length === 0 ? (
                     <div className={styles.floorGiveawayEmpty}>
                       <p className="mini-title" style={{ marginBottom: 6 }}>
-                        No giveaway requests yet
+                        No shift exchange requests yet
                       </p>
                       <p className="mini-copy">
-                        New shift giveaway requests will appear here for the floor to review.
+                        New shift exchange requests will appear here for the floor to review.
                       </p>
                     </div>
                   ) : (
@@ -1206,7 +1234,7 @@ export default function OnTheFloorNowPage() {
               <div className={`${styles.floorSection} ${styles.floorSectionDrenched}`}>
                 <div className={`${styles.floorSectionHeader} ${styles.floorSectionHeaderDrenched}`}>
                   <div>
-                    <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Schedule Changes</p>
+                    <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Schedule Adjustments</p>
                     <p className={`${styles.floorSectionSubtitle} ${styles.floorSectionSubtitleDrenched}`}>
                       Change a start time or add a dealer to today&apos;s lineup.
                     </p>
@@ -1257,7 +1285,7 @@ export default function OnTheFloorNowPage() {
                       >
                         {availableScheduleStartOptions.map((label) => (
                           <option key={label} value={label}>
-                            {label}
+                            {formatShiftStartOptionLabel(label)}
                           </option>
                         ))}
                       </select>
@@ -1647,8 +1675,19 @@ function getInitials(name: string) {
     .join("");
 }
 
-function getShiftEndLabel(hour: number) {
-  const endHour = (hour + 8) % 24;
+function getShiftEndLabel(startLabel: string) {
+  const [timePart, meridiem] = startLabel.split(" ");
+  const [rawHour, rawMinute] = timePart.split(":").map(Number);
+  let hour = rawHour % 12;
+  const minute = Number.isFinite(rawMinute) ? rawMinute : 0;
+
+  if (meridiem === "PM") {
+    hour += 12;
+  }
+
+  const start = new Date(2026, 0, 1, hour, minute, 0, 0);
+  const end = new Date(start.getTime() + (8 * 60 + 15) * 60 * 1000);
+  const endHour = end.getHours();
   const period = endHour >= 12 ? "PM" : "AM";
   const normalizedHour = endHour % 12 || 12;
 

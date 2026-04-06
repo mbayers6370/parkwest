@@ -63,6 +63,15 @@
   gap: 1px;
 }
 
+.admin-sidebar-utility {
+  padding: 18px 10px 14px;
+  margin-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--ivory-100) 7%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .admin-nav-section-label {
   padding: 14px 10px 5px;
   font-size: var(--text-xs);
@@ -208,6 +217,10 @@
   transition: color 0.12s, border-color 0.12s;
   text-decoration: none;
   display: block;
+}
+
+button.admin-page-tab {
+  appearance: none;
 }
 
 .admin-page-tab:hover {
@@ -471,36 +484,39 @@
 .quick-action-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--gap-card-tight);
+  gap: 14px;
 }
 
 .quick-action {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+  min-height: 108px;
+  padding: 18px 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: var(--radius-md);
-  background: var(--surface-input);
+  background: var(--ivory-100);
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s, transform 0.12s;
   text-align: left;
   text-decoration: none;
   color: var(--foreground);
 }
 
 .quick-action:hover {
-  border-color: color-mix(in srgb, var(--gold-dark) 50%, transparent);
-  background: color-mix(in srgb, var(--gold) 6%, transparent);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 34%, transparent);
+  background: color-mix(in srgb, var(--ivory-100) 92%, var(--gold) 8%);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--charcoal-900) 6%, transparent);
+  transform: translateY(-1px);
 }
 
 .quick-action-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--gold) 10%, var(--ivory-100));
+  border: 1px solid color-mix(in srgb, var(--gold-dark) 16%, transparent);
   color: var(--gold-dark);
   display: flex;
   align-items: center;
@@ -508,17 +524,183 @@
   flex-shrink: 0;
 }
 
+.quick-action-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
 .quick-action-title {
-  margin: 0 0 2px;
-  font-size: var(--text-md);
+  margin: 0;
+  font-size: var(--text-md-plus);
   font-weight: 800;
+  line-height: 1.2;
 }
 
 .quick-action-desc {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-sm-plus);
   color: var(--foreground-muted);
+  line-height: 1.4;
+}
+
+/* ─── SCHEDULE IMPORT ───────────────────────────────────── */
+
+.schedule-import-upload-card {
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 24px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--charcoal-900) 4%, transparent);
+}
+
+.schedule-import-upload-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px 2px;
+}
+
+.schedule-import-upload-head-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 20%, transparent);
+  background: color-mix(in srgb, var(--ivory-100) 96%, transparent);
+  color: color-mix(in srgb, var(--charcoal-700) 72%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.schedule-import-upload-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 800;
+}
+
+.schedule-import-upload-subtitle {
+  margin: 4px 0 0;
+  font-size: var(--text-lg-minus);
+  color: color-mix(in srgb, var(--foreground-muted) 78%, transparent);
+}
+
+.schedule-import-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 300px;
+  padding: 28px 24px;
+  border: 1px dashed color-mix(in srgb, var(--charcoal-500) 26%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
+  text-align: center;
+  cursor: pointer;
+}
+
+.schedule-import-dropzone:hover {
+  border-color: color-mix(in srgb, var(--gold-dark) 28%, transparent);
+  background: color-mix(in srgb, var(--ivory-100) 94%, var(--gold) 6%);
+}
+
+.schedule-import-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.schedule-import-dropzone-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--charcoal-700) 76%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.schedule-import-dropzone-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2rem);
+  font-weight: 500;
+  color: color-mix(in srgb, var(--charcoal-900) 88%, transparent);
+}
+
+.schedule-import-dropzone-copy {
+  margin: 0;
+  font-size: var(--text-lg-minus);
+  color: color-mix(in srgb, var(--foreground-muted) 76%, transparent);
+  max-width: 34ch;
   line-height: 1.45;
+}
+
+.schedule-import-dropzone-button {
+  margin-top: 6px;
+  pointer-events: none;
+  min-width: 150px;
+}
+
+.schedule-import-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.schedule-import-selected-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, #edf2fb 88%, var(--ivory-100));
+  border: 1px solid color-mix(in srgb, #d7dfef 86%, transparent);
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-import-selected-fileEmpty {
+  background: color-mix(in srgb, var(--ivory-100) 96%, transparent);
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.schedule-import-selected-file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ivory-100) 90%, transparent);
+  color: var(--gold-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.schedule-import-selected-file-name {
+  margin: 0;
+  font-size: var(--text-lg-minus);
+  font-weight: 700;
+}
+
+.schedule-import-selected-file-meta {
+  margin: 3px 0 0;
+  font-size: var(--text-sm-plus);
+  color: var(--foreground-muted);
+}
+
+.schedule-import-submit {
+  align-self: center;
+  flex-shrink: 0;
 }
 
 /* ─── DATA ROWS ──────────────────────────────────────────── */
@@ -810,6 +992,10 @@
 
 .employee-search-results {
   margin-top: 12px;
+}
+
+.employee-directory-results {
+  margin-top: 16px;
 }
 
 .button-row {

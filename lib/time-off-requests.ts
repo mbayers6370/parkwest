@@ -43,70 +43,7 @@ export const TIME_OFF_STATUS_LABELS: Record<TimeOffStatus, string> = {
   not_approved: "Not Approved",
 };
 
-export const MOCK_TIME_OFF_REQUESTS: TimeOffRequest[] = [
-  {
-    id: "tor-001",
-    fullName: "Matthew Bayers",
-    supervisor: "Brian",
-    dateSubmitted: "2025-08-01",
-    absenceStartDate: "2025-09-13",
-    absenceEndDate: "2025-09-24",
-    shift: "Grave",
-    location: "580",
-    hoursAbsent: "14",
-    datesAbsent: "September 13 - 24",
-    reason: "other",
-    explanation: "Japan work trip",
-    requestWindow: "request_in_advance",
-    status: "pending",
-  },
-  {
-    id: "tor-002",
-    fullName: "Janelle Reyes",
-    supervisor: "Brian",
-    dateSubmitted: "2025-08-02",
-    absenceStartDate: "2025-08-22",
-    absenceEndDate: "2025-08-22",
-    shift: "Swing",
-    location: "580",
-    hoursAbsent: "8",
-    datesAbsent: "August 22",
-    reason: "vacation",
-    requestWindow: "request_in_advance",
-    status: "approved",
-  },
-  {
-    id: "tor-003",
-    fullName: "Marcus Tran",
-    supervisor: "Brian",
-    dateSubmitted: "2025-08-08",
-    absenceStartDate: "2025-08-09",
-    absenceEndDate: "2025-08-09",
-    shift: "Day",
-    location: "580",
-    hoursAbsent: "6",
-    datesAbsent: "August 9",
-    reason: "paid_sick_leave",
-    explanation: "Flu symptoms",
-    requestWindow: "after_absence",
-    status: "pending",
-  },
-  {
-    id: "tor-004",
-    fullName: "Susan Kim",
-    supervisor: "Brian",
-    dateSubmitted: "2025-08-09",
-    absenceStartDate: "2025-08-15",
-    absenceEndDate: "2025-08-15",
-    shift: "Swing",
-    location: "580",
-    hoursAbsent: "8",
-    datesAbsent: "August 15",
-    reason: "bereavement",
-    requestWindow: "request_in_advance",
-    status: "not_approved",
-  },
-];
+export const MOCK_TIME_OFF_REQUESTS: TimeOffRequest[] = [];
 
 export const TIME_OFF_REQUESTS_STORAGE_KEY = "parkwest-time-off-requests";
 
@@ -165,7 +102,17 @@ export function groupRequestsBySaturdayWeek(requests: TimeOffRequest[]) {
 }
 
 export function getAllTimeOffRequests(storedRequests: TimeOffRequest[] = []) {
-  return [...storedRequests.map(normalizeTimeOffRequest), ...MOCK_TIME_OFF_REQUESTS];
+  const mergedById = new Map<string, TimeOffRequest>();
+
+  MOCK_TIME_OFF_REQUESTS.forEach((request) => {
+    mergedById.set(request.id, normalizeTimeOffRequest(request));
+  });
+
+  storedRequests.forEach((request) => {
+    mergedById.set(request.id, normalizeTimeOffRequest(request));
+  });
+
+  return [...mergedById.values()];
 }
 
 function getRequestWeekAnchor(request: TimeOffRequest) {

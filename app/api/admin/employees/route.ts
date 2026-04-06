@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query")?.trim() ?? "";
   const propertyKey = request.nextUrl.searchParams.get("propertyKey")?.trim().toLowerCase() ?? "";
+  const includeAll = request.nextUrl.searchParams.get("all") === "1";
 
   if (isMockModeEnabled()) {
     const normalizedQuery = query.toLowerCase();
@@ -36,7 +37,10 @@ export async function GET(request: NextRequest) {
       return haystack.includes(normalizedQuery);
     });
 
-    return NextResponse.json({ employees: employees.slice(0, query ? 12 : 20), mockMode: true });
+    return NextResponse.json({
+      employees: includeAll ? employees : employees.slice(0, query ? 12 : 20),
+      mockMode: true,
+    });
   }
 
   try {
@@ -111,7 +115,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         displayName: "asc",
       },
-      take: query ? 12 : 20,
+      take: includeAll ? undefined : query ? 12 : 20,
     });
 
     return NextResponse.json({ employees });

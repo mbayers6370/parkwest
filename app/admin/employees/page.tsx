@@ -1,25 +1,42 @@
-import { AdminEmployeeManager } from "@/components/admin-employee-manager";
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import {
+  AdminEmployeeDirectory,
+  AdminEmployeeManager,
+} from "@/components/admin-employee-manager";
+
+type EmployeeAdminTab = "manage" | "directory";
 
 export default function AdminEmployeesPage() {
+  const [activeTab, setActiveTab] = useState<EmployeeAdminTab>("manage");
+
   return (
     <>
       <header className="admin-page-header">
         <p className="admin-page-eyebrow">Manager / Admin</p>
         <h1 className="admin-page-title">Employees</h1>
-        <p className="admin-page-subtitle">
-          Import, search, and manage employee records and schedule aliases
-        </p>
+        <p className="admin-page-subtitle">Create, search, and manage employee records</p>
         <nav className="admin-page-tabs" aria-label="Employee views">
-          <span className="admin-page-tab active">All Employees</span>
-          <Link href="/admin/schedule-import" className="admin-page-tab">
-            Schedule Import
-          </Link>
+          <button
+            type="button"
+            className={`admin-page-tab${activeTab === "manage" ? " active" : ""}`}
+            onClick={() => setActiveTab("manage")}
+          >
+            Manage Employees
+          </button>
+          <button
+            type="button"
+            className={`admin-page-tab${activeTab === "directory" ? " active" : ""}`}
+            onClick={() => setActiveTab("directory")}
+          >
+            Employee Directory
+          </button>
         </nav>
       </header>
 
       <div className="admin-content">
-        <AdminEmployeeManager />
+        {activeTab === "manage" ? <AdminEmployeeManager /> : <AdminEmployeeDirectory />}
       </div>
     </>
   );

@@ -14,6 +14,7 @@ import {
 import {
   loadStoredTimeOffRequests,
   saveStoredTimeOffRequests,
+  TIME_OFF_REQUESTS_UPDATED_EVENT,
 } from "@/lib/time-off-request-store";
 import shared from "../personal-shared.module.css";
 import styles from "./requests.module.css";
@@ -50,7 +51,18 @@ export default function PersonalRequestsPage() {
   const datesAbsent = formatDateRange(absenceStartDate, absenceEndDate);
 
   useEffect(() => {
-    setStoredRequests(loadStoredTimeOffRequests());
+    const syncStoredRequests = () => {
+      setStoredRequests(loadStoredTimeOffRequests());
+    };
+
+    syncStoredRequests();
+    window.addEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncStoredRequests);
+    window.addEventListener("storage", syncStoredRequests);
+
+    return () => {
+      window.removeEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncStoredRequests);
+      window.removeEventListener("storage", syncStoredRequests);
+    };
   }, []);
 
   function handleSubmit(event: React.FormEvent) {

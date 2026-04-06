@@ -20,7 +20,6 @@ import {
 import { loadStoredAttendanceEvents } from "@/lib/attendance-event-store";
 import {
   applyApprovedGiveawayRequest,
-  SHIFT_REQUEST_KIND_LABELS,
   type ShiftGiveawayRequest,
 } from "@/lib/shift-giveaway-requests";
 import {
@@ -33,19 +32,32 @@ import {
   saveStoredSchedule,
   SCHEDULE_UPDATED_EVENT,
 } from "@/lib/mock-schedule-store";
-import { type ScheduleEntry } from "@/lib/mock-schedule";
 import {
-  SCHEDULE_OVERRIDE_KIND_LABELS,
+  parseShiftRange,
+  type ScheduleEntry,
+} from "@/lib/mock-schedule";
+import {
+  applyScheduleOverrides,
   type ScheduleOverride,
 } from "@/lib/schedule-overrides";
 import {
   loadStoredScheduleOverrides,
   SCHEDULE_OVERRIDES_UPDATED_EVENT,
 } from "@/lib/schedule-override-store";
+import {
+  getAllTimeOffRequests,
+  TIME_OFF_REASON_LABELS,
+  TIME_OFF_STATUS_LABELS,
+  type TimeOffRequest,
+} from "@/lib/time-off-requests";
+import {
+  loadStoredTimeOffRequests,
+  TIME_OFF_REQUESTS_UPDATED_EVENT,
+} from "@/lib/time-off-request-store";
 
 const QUICK_ACTIONS = [
   {
-    href: "/admin/schedule-import",
+    href: "/admin/schedule-manager",
     icon: Upload,
     title: "Import Schedule",
     desc: "Upload a weekly spreadsheet and map it to employee records",
@@ -86,6 +98,7 @@ export default function AdminOverviewPage() {
   const [storedAttendanceEvents, setStoredAttendanceEvents] = useState<
     AttendanceEvent[]
   >([]);
+  const [storedTimeOffRequests, setStoredTimeOffRequests] = useState<TimeOffRequest[]>([]);
   const [giveawayRequests, setGiveawayRequests] = useState<ShiftGiveawayRequest[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
@@ -97,6 +110,9 @@ export default function AdminOverviewPage() {
     const syncGiveawayRequests = () => {
       setGiveawayRequests(loadStoredShiftGiveawayRequests());
     };
+    const syncTimeOffRequests = () => {
+      setStoredTimeOffRequests(loadStoredTimeOffRequests());
+    };
     const syncScheduleEntries = () => {
       setScheduleEntries(loadStoredSchedule());
     };
@@ -106,29 +122,34 @@ export default function AdminOverviewPage() {
 
     syncAttendanceEvents();
     syncGiveawayRequests();
+    syncTimeOffRequests();
     syncScheduleEntries();
     syncScheduleOverrides();
 
     window.addEventListener("storage", syncAttendanceEvents);
     window.addEventListener("storage", syncGiveawayRequests);
+    window.addEventListener("storage", syncTimeOffRequests);
     window.addEventListener("storage", syncScheduleEntries);
     window.addEventListener("storage", syncScheduleOverrides);
     window.addEventListener(
       SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
       syncGiveawayRequests,
     );
+    window.addEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncTimeOffRequests);
     window.addEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
     window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
 
     return () => {
       window.removeEventListener("storage", syncAttendanceEvents);
       window.removeEventListener("storage", syncGiveawayRequests);
+      window.removeEventListener("storage", syncTimeOffRequests);
       window.removeEventListener("storage", syncScheduleEntries);
       window.removeEventListener("storage", syncScheduleOverrides);
       window.removeEventListener(
         SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
         syncGiveawayRequests,
       );
+      window.removeEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncTimeOffRequests);
       window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
       window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
     };
@@ -149,18 +170,47 @@ export default function AdminOverviewPage() {
   }, [storedAttendanceEvents]);
 
   const attendanceSummary = getAttendanceSummary(attendanceWindow);
+  const effectiveScheduleEntries = useMemo(
+    () => applyScheduleOverrides(scheduleEntries, scheduleOverrides),
+    [scheduleEntries, scheduleOverrides],
+  );
+  const pendingTimeOffRequests = useMemo(
+    () =>
+      getAllTimeOffRequests(storedTimeOffRequests).filter(
+        (request) => request.status === "pending",
+      ),
+    [storedTimeOffRequests],
+  );
+  const latestPendingTimeOffRequests = useMemo(
+    () =>
+      [...pendingTimeOffRequests]
+        .sort((a, b) => b.dateSubmitted.localeCompare(a.dateSubmitted))
+        .slice(0, 2),
+    [pendingTimeOffRequests],
+  );
   const pendingGiveawayRequests = useMemo(
     () => giveawayRequests.filter((request) => request.status === "pending"),
     [giveawayRequests],
   );
-  const recentScheduleOverrides = useMemo(
-    () =>
-      [...scheduleOverrides]
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 5),
-    [scheduleOverrides],
-  );
+  const activeEmployees = useMemo(() => {
+    const now = new Date();
+    const activeNames = new Set(
+      effectiveScheduleEntries
+        .filter((entry) => entry.status === "scheduled")
+        .filter((entry) => {
+          const range = parseShiftRange(entry.shiftDate, entry.shiftTime);
 
+          if (!range) {
+            return false;
+          }
+
+          return now.getTime() >= range.start.getTime() && now.getTime() <= range.end.getTime();
+        })
+        .map((entry) => entry.employeeName),
+    );
+
+    return activeNames.size;
+  }, [effectiveScheduleEntries]);
   function updateGiveawayRequest(requestId: string, status: "approved" | "denied") {
     const request = giveawayRequests.find((entry) => entry.id === requestId);
 
@@ -201,12 +251,12 @@ export default function AdminOverviewPage() {
         <div className="stat-row">
           <div className="stat-card">
             <p className="stat-label">Pending Requests</p>
-            <p className={`stat-value ${pendingGiveawayRequests.length > 0 ? "alert" : "muted"}`}>
-              {pendingGiveawayRequests.length}
+            <p className={`stat-value ${pendingTimeOffRequests.length > 0 ? "alert" : "muted"}`}>
+              {pendingTimeOffRequests.length}
             </p>
             <p className="stat-meta">
-              {pendingGiveawayRequests.length > 0
-                ? "Shift giveaway requests awaiting review"
+              {pendingTimeOffRequests.length > 0
+                ? "Time-off requests awaiting review"
                 : "No requests awaiting review"}
             </p>
           </div>
@@ -222,18 +272,11 @@ export default function AdminOverviewPage() {
           </div>
           <div className="stat-card">
             <p className="stat-label">Active Employees</p>
-            <p className="stat-value muted">0</p>
-            <p className="stat-meta">No records imported yet</p>
-          </div>
-        </div>
-
-        <div className="notice-card info" style={{ marginBottom: 22 }}>
-          <CircleAlert size={16} aria-hidden="true" />
-          <div>
-            <p className="notice-title">Getting started</p>
-            <p className="notice-body">
-              Start by importing your employee roster, then upload a weekly schedule. Once employees
-              are mapped, the dealer and floor portals will have real data to show.
+            <p className={`stat-value ${activeEmployees > 0 ? "ok" : "muted"}`}>{activeEmployees}</p>
+            <p className="stat-meta">
+              {activeEmployees > 0
+                ? "Scheduled and currently on shift"
+                : "No employees currently on shift"}
             </p>
           </div>
         </div>
@@ -251,8 +294,10 @@ export default function AdminOverviewPage() {
                 <div className="quick-action-icon">
                   <action.icon size={17} aria-hidden="true" />
                 </div>
-                <p className="quick-action-title">{action.title}</p>
-                <p className="quick-action-desc">{action.desc}</p>
+                <div className="quick-action-copy">
+                  <p className="quick-action-title">{action.title}</p>
+                  <p className="quick-action-desc">{action.desc}</p>
+                </div>
               </Link>
             ))}
           </div>
@@ -263,76 +308,46 @@ export default function AdminOverviewPage() {
             <div className="admin-card-header">
               <div>
                 <p className="admin-card-title">Pending Requests</p>
-                <p className="admin-card-subtitle">Shift giveaway requests awaiting decision</p>
+                <p className="admin-card-subtitle">Latest time-off requests awaiting review</p>
               </div>
               <Link href="/admin/requests" className="secondary-button" style={{ fontSize: "var(--text-sm-plus)" }}>
                 View All
               </Link>
             </div>
             <div className="admin-card-body">
-              {pendingGiveawayRequests.length === 0 ? (
+              {latestPendingTimeOffRequests.length === 0 ? (
                 <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
                   <p className="mini-title" style={{ marginBottom: 6 }}>
                     No pending requests
                   </p>
                   <p className="mini-copy">
-                    Shift giveaway requests will appear here for review.
+                    Time-off requests will appear here for review.
                   </p>
                 </div>
               ) : (
                 <div className="admin-giveaway-list">
-                  {pendingGiveawayRequests.map((request) => (
+                  {latestPendingTimeOffRequests.map((request) => (
                     <div key={request.id} className="admin-giveaway-item">
                       <div className="admin-giveaway-item-top">
                         <div>
-                          <p className="admin-giveaway-title">
-                            {request.requesterName} → {request.targetDealerName}
-                          </p>
+                          <p className="admin-giveaway-title">{request.fullName}</p>
                           <p className="admin-giveaway-meta">
-                            {SHIFT_REQUEST_KIND_LABELS[request.requestKind]} · {request.shiftDayLabel} · {request.requesterShiftTime}
+                            {request.shift} · {request.location} · Submitted {request.dateSubmitted}
                           </p>
                         </div>
-                        <span className="badge warning">Pending</span>
+                        <span className="badge warning">
+                          {TIME_OFF_STATUS_LABELS[request.status]}
+                        </span>
                       </div>
                       <p className="admin-giveaway-copy">
-                        {request.requestKind === "switch" ? "Requested switch: " : "Target dealer: "}
-                        {request.targetDealerStatus === "off" ? "Off that day" : request.targetDealerShiftTime}
+                        {request.datesAbsent} · {request.hoursAbsent} hours
                       </p>
-                      {request.validationSnapshot.restHoursBeforeShift !== null ? (
-                        <p className="admin-giveaway-copy">
-                          Rest before shift: {request.validationSnapshot.restHoursBeforeShift} hours
-                        </p>
+                      <p className="admin-giveaway-copy">
+                        {TIME_OFF_REASON_LABELS[request.reason]}
+                      </p>
+                      {request.explanation ? (
+                        <p className="admin-giveaway-note">{request.explanation}</p>
                       ) : null}
-                      {request.validationSnapshot.targetDealerAlreadyAtSixDays ? (
-                        <div className="notice-card danger">
-                          <CircleAlert size={14} aria-hidden="true" />
-                          <div>
-                            <p className="notice-title">Red flag</p>
-                            <p className="notice-body">
-                              {request.targetDealerName} is already scheduled for six days this week.
-                            </p>
-                          </div>
-                        </div>
-                      ) : null}
-                      {request.note ? (
-                        <p className="admin-giveaway-note">{request.note}</p>
-                      ) : null}
-                      <div className="admin-giveaway-actions">
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() => updateGiveawayRequest(request.id, "denied")}
-                        >
-                          Deny
-                        </button>
-                        <button
-                          type="button"
-                          className="primary-button"
-                          onClick={() => updateGiveawayRequest(request.id, "approved")}
-                        >
-                          Approve
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -389,51 +404,6 @@ export default function AdminOverviewPage() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="admin-card">
-            <div className="admin-card-header">
-              <div>
-                <p className="admin-card-title">Schedule Changes</p>
-                <p className="admin-card-subtitle">Floor overrides added to the weekly schedule</p>
-              </div>
-            </div>
-            <div className="admin-card-body">
-              {recentScheduleOverrides.length === 0 ? (
-                <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
-                  <p className="mini-title" style={{ marginBottom: 6 }}>
-                    No schedule changes yet
-                  </p>
-                  <p className="mini-copy">
-                    Start-time changes and added dealers will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="admin-giveaway-list">
-                  {recentScheduleOverrides.map((override) => (
-                    <div key={override.id} className="admin-giveaway-item">
-                      <div className="admin-giveaway-item-top">
-                        <div>
-                          <p className="admin-giveaway-title">{override.employeeName}</p>
-                          <p className="admin-giveaway-meta">
-                            {SCHEDULE_OVERRIDE_KIND_LABELS[override.kind]} · {override.shiftDate}
-                          </p>
-                        </div>
-                        {override.flaggedSixDay ? (
-                          <span className="badge danger">Red Flag</span>
-                        ) : null}
-                      </div>
-                      <p className="admin-giveaway-copy">
-                        {override.previousShiftTime} → {override.nextShiftTime}
-                      </p>
-                      {override.note ? (
-                        <p className="admin-giveaway-note">{override.note}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 

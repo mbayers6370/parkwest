@@ -3,6 +3,8 @@ import {
   type TimeOffRequest,
 } from "@/lib/time-off-requests";
 
+export const TIME_OFF_REQUESTS_UPDATED_EVENT = "parkwest-time-off-requests-updated";
+
 export function loadStoredTimeOffRequests() {
   if (typeof window === "undefined") {
     return [] as TimeOffRequest[];
@@ -31,4 +33,5 @@ export function saveStoredTimeOffRequests(requests: TimeOffRequest[]) {
     TIME_OFF_REQUESTS_STORAGE_KEY,
     JSON.stringify(requests),
   );
+  window.dispatchEvent(new Event(TIME_OFF_REQUESTS_UPDATED_EVENT));
 }

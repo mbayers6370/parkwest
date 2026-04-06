@@ -160,6 +160,48 @@
   align-items: end;
 }
 
+.floorScheduleChangeBody {
+  padding-top: 10px;
+}
+
+.floorScheduleChangeForm {
+  gap: 14px;
+}
+
+.floorScheduleChangeBody :global(.field-stack) {
+  gap: 6px;
+}
+
+.floorScheduleChangeTypeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.floorScheduleChangePill {
+  min-width: 0;
+}
+
+.floorScheduleChangeResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.floorScheduleChangeMeta {
+  margin: -2px 0 0;
+  font-size: var(--text-sm-plus);
+  color: var(--foreground-muted);
+}
+
+.floorScheduleChangeNote {
+  min-height: 84px;
+}
+
+.floorScheduleChangeSubmit {
+  width: 100%;
+}
+
 .floorAttendanceTypeRow {
   display: flex;
   flex-wrap: nowrap;

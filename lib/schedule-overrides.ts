@@ -24,26 +24,31 @@ export const SCHEDULE_OVERRIDE_KIND_LABELS: Record<ScheduleOverrideKind, string>
 };
 
 export const SHIFT_START_OPTIONS = [
-  "8 AM",
-  "10 AM",
-  "12 PM",
-  "2 PM",
-  "4 PM",
-  "6 PM",
-  "8 PM",
-  "10 PM",
-  "12 AM",
+  "7:45 AM",
+  "9:45 AM",
+  "11:45 AM",
+  "1:45 PM",
+  "3:45 PM",
+  "5:45 PM",
+  "7:45 PM",
+  "9:45 PM",
+  "11:45 PM",
 ] as const;
 
 export function buildShiftTimeRange(startLabel: string) {
-  const startDate = parseLabelToDate(startLabel);
-  const endDate = new Date(startDate.getTime() + 8 * 60 * 60 * 1000);
+  const actualStartDate = parseLabelToDate(startLabel);
+  const endDate = new Date(actualStartDate.getTime() + (8 * 60 + 15) * 60 * 1000);
 
-  return `${formatHourLabel(startDate)} – ${formatHourLabel(endDate)}`;
+  return `${formatMinuteLabel(actualStartDate)} – ${formatHourLabel(endDate)}`;
+}
+
+export function formatShiftStartOptionLabel(startLabel: string) {
+  return formatMinuteLabel(parseLabelToDate(startLabel));
 }
 
 export function getShiftStartLabel(shiftTime: string) {
-  return shiftTime.split("–")[0]?.trim() ?? shiftTime;
+  const startLabel = shiftTime.split("–")[0]?.trim() ?? shiftTime;
+  return formatMinuteLabel(parseLabelToDate(startLabel));
 }
 
 export function applyScheduleOverrides(
@@ -83,25 +88,39 @@ export function getScheduledDaysForWeek(
   employeeName: string,
   shiftDate: string,
 ) {
-  const monthKey = shiftDate.slice(0, 7);
+  // Find the Saturday-to-Friday week containing shiftDate
+  const d = new Date(shiftDate + "T12:00:00");
+  const daysFromSat = (d.getDay() + 1) % 7;
+  const sat = new Date(d.getFullYear(), d.getMonth(), d.getDate() - daysFromSat);
+  const fri = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + 6);
+
+  function toISO(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  const weekStart = toISO(sat);
+  const weekEnd = toISO(fri);
 
   return entries.filter(
     (entry) =>
       entry.employeeName === employeeName &&
       entry.status === "scheduled" &&
-      entry.shiftDate.slice(0, 7) === monthKey,
+      entry.shiftDate >= weekStart &&
+      entry.shiftDate <= weekEnd,
   ).length;
 }
 
 function parseLabelToDate(label: string) {
-  const [rawHour, meridiem] = label.split(" ");
+  const [timePart, meridiem] = label.split(" ");
+  const [rawHour, rawMinute] = timePart.split(":").map(Number);
   let hour = Number(rawHour) % 12;
 
   if (meridiem === "PM") {
     hour += 12;
   }
 
-  return new Date(2026, 0, hour === 0 ? 2 : 1, hour, 0, 0, 0);
+  const minute = Number.isFinite(rawMinute) ? rawMinute : 0;
+  return new Date(2026, 0, hour === 0 ? 2 : 1, hour, minute, 0, 0);
 }
 
 function formatHourLabel(date: Date) {
@@ -110,4 +129,12 @@ function formatHourLabel(date: Date) {
   const meridiem = hour >= 12 ? "PM" : "AM";
 
   return `${normalizedHour}:00 ${meridiem}`;
+}
+
+function formatMinuteLabel(date: Date) {
+  const hour = date.getHours();
+  const normalizedHour = hour % 12 || 12;
+  const meridiem = hour >= 12 ? "PM" : "AM";
+
+  return `${normalizedHour}:45 ${meridiem}`;
 }

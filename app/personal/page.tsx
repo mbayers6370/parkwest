@@ -17,6 +17,33 @@ import {
   loadStoredAttendanceEvents,
   saveStoredAttendanceEvents,
 } from "@/lib/attendance-event-store";
+import {
+  getCurrentWeekRange,
+  getScheduleEntriesForEmployee,
+  type ScheduleEntry,
+} from "@/lib/mock-schedule";
+import {
+  loadStoredSchedule,
+  SCHEDULE_UPDATED_EVENT,
+} from "@/lib/mock-schedule-store";
+import {
+  applyScheduleOverrides,
+  type ScheduleOverride,
+} from "@/lib/schedule-overrides";
+import {
+  loadStoredScheduleOverrides,
+  SCHEDULE_OVERRIDES_UPDATED_EVENT,
+} from "@/lib/schedule-override-store";
+import {
+  getAllTimeOffRequests,
+  TIME_OFF_REASON_LABELS,
+  TIME_OFF_STATUS_LABELS,
+  type TimeOffRequest,
+} from "@/lib/time-off-requests";
+import {
+  loadStoredTimeOffRequests,
+  TIME_OFF_REQUESTS_UPDATED_EVENT,
+} from "@/lib/time-off-request-store";
 import shared from "./personal-shared.module.css";
 import styles from "./home.module.css";
 import requestStyles from "./requests/requests.module.css";
@@ -24,86 +51,36 @@ import exchangeStyles from "./exchange/exchange.module.css";
 
 const CURRENT_USER = {
   firstName: "Matt",
-  fullName: "Matthew Bayers",
+  lastName: "Bayers",
+  displayName: "Matt",
   roleLabel: "Dealer",
 };
+type HomeScheduleDay = {
+  id: string;
+  name: string;
+  off: boolean;
+  dateIso: string;
+  num: string;
+  today: boolean;
+  monthShort: string;
+  shiftLabel: string | null;
+  fullDayLabel: string;
+  startTime: string | null;
+  endTime: string | null;
+  startDateTime: string | null;
+};
 
-const MOCK_WEEK_TEMPLATE = [
-  { name: "Sat", shift: "10a-6p", off: false, shiftLabel: "Day", startHour24: 10, endHour24: 18 },
-  { name: "Sun", shift: "OFF", off: true },
-  { name: "Mon", shift: "2-10p", off: false, shiftLabel: "Swing", startHour24: 14, endHour24: 22 },
-  { name: "Tue", shift: "2-10p", off: false, shiftLabel: "Swing", startHour24: 14, endHour24: 22 },
-  { name: "Wed", shift: "OFF", off: true },
-  { name: "Thu", shift: "OFF", off: true },
-  { name: "Fri", shift: "10a-6p", off: false, shiftLabel: "Day", startHour24: 10, endHour24: 18 },
-] as const;
+function toTwentyFourHourTime(timeLabel: string) {
+  const [timePart, meridiem] = timeLabel.split(" ");
+  const [rawHour, rawMinute] = timePart.split(":").map(Number);
+  let hour = rawHour % 12;
 
-function getUpcomingSaturday(baseDate: Date) {
-  const nextSaturday = new Date(baseDate);
-  nextSaturday.setHours(0, 0, 0, 0);
+  if (meridiem === "PM") {
+    hour += 12;
+  }
 
-  const daysUntilSaturday = (6 - nextSaturday.getDay() + 7) % 7;
-  nextSaturday.setDate(nextSaturday.getDate() + daysUntilSaturday);
-
-  return nextSaturday;
+  return `${String(hour).padStart(2, "0")}:${String(rawMinute ?? 0).padStart(2, "0")}:00`;
 }
-
-function formatShiftDateIso(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatShiftTime(hour24: number) {
-  const suffix = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 || 12;
-  return `${hour12}:00 ${suffix}`;
-}
-
-function buildMockWeek(baseDate: Date) {
-  const weekStart = getUpcomingSaturday(baseDate);
-  const todayIso = formatShiftDateIso(baseDate);
-
-  return MOCK_WEEK_TEMPLATE.map((template, index) => {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + index);
-
-    const dateIso = formatShiftDateIso(date);
-
-    return {
-      ...template,
-      dateIso,
-      num: String(date.getDate()),
-      today: dateIso === todayIso,
-      monthShort: date.toLocaleDateString("en-US", { month: "short" }),
-      shiftLabel: template.off ? null : template.shiftLabel,
-      fullDayLabel: date.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      }),
-      startTime:
-        template.off || template.startHour24 === undefined
-          ? null
-          : formatShiftTime(template.startHour24),
-      endTime:
-        template.off || template.endHour24 === undefined
-          ? null
-          : formatShiftTime(template.endHour24),
-      startDateTime:
-        template.off || template.startHour24 === undefined
-          ? null
-          : `${dateIso}T${String(template.startHour24).padStart(2, "0")}:00:00`,
-    };
-  });
-}
-
-function findNextScheduledShift(weekDays: ReturnType<typeof buildMockWeek>) {
-  return weekDays.find((day) => !day.off && day.startDateTime) ?? null;
-}
-
-type MockWeekDay = ReturnType<typeof buildMockWeek>[number];
 
 const ATTENDANCE_OPTIONS: Array<{
   value: AttendanceEventType;
@@ -116,29 +93,55 @@ const ATTENDANCE_OPTIONS: Array<{
 
 export default function PersonalHomePage() {
   const [storedEvents, setStoredEvents] = useState<AttendanceEvent[]>([]);
+  const [storedRequests, setStoredRequests] = useState<TimeOffRequest[]>([]);
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
-  const [selectedWeekDay, setSelectedWeekDay] = useState<MockWeekDay | null>(null);
+  const [selectedWeekDay, setSelectedWeekDay] = useState<HomeScheduleDay | null>(null);
   const [attendanceType, setAttendanceType] =
     useState<AttendanceEventType>("call_out_point");
   const [pslHours, setPslHours] = useState<AttendancePslHours>(8);
   const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const weekDays = useMemo(() => buildMockWeek(new Date(nowMs)), [nowMs]);
-  const nextShift = useMemo(() => findNextScheduledShift(weekDays), [weekDays]);
+  const currentDate = useMemo(() => new Date(nowMs), [nowMs]);
 
   useEffect(() => {
     const syncStoredEvents = () => {
       setStoredEvents(loadStoredAttendanceEvents());
     };
+    const syncSchedule = () => {
+      setScheduleEntries(loadStoredSchedule());
+    };
+    const syncOverrides = () => {
+      setScheduleOverrides(loadStoredScheduleOverrides());
+    };
+    const syncRequests = () => {
+      setStoredRequests(loadStoredTimeOffRequests());
+    };
 
     syncStoredEvents();
+    syncSchedule();
+    syncOverrides();
+    syncRequests();
     window.addEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
+    window.addEventListener(SCHEDULE_UPDATED_EVENT, syncSchedule);
+    window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncOverrides);
+    window.addEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncRequests);
     window.addEventListener("storage", syncStoredEvents);
+    window.addEventListener("storage", syncSchedule);
+    window.addEventListener("storage", syncOverrides);
+    window.addEventListener("storage", syncRequests);
 
     return () => {
       window.removeEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
+      window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncSchedule);
+      window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncOverrides);
+      window.removeEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncRequests);
       window.removeEventListener("storage", syncStoredEvents);
+      window.removeEventListener("storage", syncSchedule);
+      window.removeEventListener("storage", syncOverrides);
+      window.removeEventListener("storage", syncRequests);
     };
   }, []);
 
@@ -158,6 +161,74 @@ export default function PersonalHomePage() {
     }
   }, [attendanceType, pslHours]);
 
+  const effectiveScheduleEntries = useMemo(
+    () => applyScheduleOverrides(scheduleEntries, scheduleOverrides),
+    [scheduleEntries, scheduleOverrides],
+  );
+
+  const { weekStartIso, weekEndIso } = useMemo(
+    () => getCurrentWeekRange(currentDate),
+    [currentDate],
+  );
+
+  const weekDays = useMemo<HomeScheduleDay[]>(() => {
+    return getScheduleEntriesForEmployee(effectiveScheduleEntries, CURRENT_USER.displayName)
+      .filter((entry) => entry.shiftDate >= weekStartIso && entry.shiftDate <= weekEndIso)
+      .sort((a, b) => a.shiftDate.localeCompare(b.shiftDate))
+      .map((entry) => {
+        const [startTime, endTime] =
+          entry.status === "scheduled" ? entry.shiftTime.split("–").map((part) => part.trim()) : [null, null];
+
+        return {
+          id: entry.id,
+          name: entry.dayShort,
+          off: entry.status !== "scheduled",
+          dateIso: entry.shiftDate,
+          num: String(Number(entry.shiftDate.slice(-2))),
+          today: entry.shiftDate === currentDate.toISOString().slice(0, 10),
+          monthShort: new Date(`${entry.shiftDate}T12:00:00`).toLocaleDateString("en-US", {
+            month: "short",
+          }),
+          shiftLabel: entry.dept || null,
+          fullDayLabel: entry.dayLabel,
+          startTime,
+          endTime,
+          startDateTime: startTime ? `${entry.shiftDate}T${toTwentyFourHourTime(startTime)}` : null,
+        };
+      });
+  }, [currentDate, effectiveScheduleEntries, weekEndIso, weekStartIso]);
+
+  const nextShift = useMemo(() => {
+    const futureShifts = getScheduleEntriesForEmployee(effectiveScheduleEntries, CURRENT_USER.displayName)
+      .filter((entry) => entry.status === "scheduled")
+      .sort((a, b) => a.shiftDate.localeCompare(b.shiftDate))
+      .map((entry) => {
+        const [startTime, endTime] = entry.shiftTime.split("–").map((part) => part.trim());
+        return {
+          id: entry.id,
+          name: entry.dayShort,
+          off: false,
+          dateIso: entry.shiftDate,
+          num: String(Number(entry.shiftDate.slice(-2))),
+          today: entry.shiftDate === currentDate.toISOString().slice(0, 10),
+          monthShort: new Date(`${entry.shiftDate}T12:00:00`).toLocaleDateString("en-US", {
+            month: "short",
+          }),
+          shiftLabel: entry.dept || null,
+          fullDayLabel: entry.dayLabel,
+          startTime,
+          endTime,
+          startDateTime: `${entry.shiftDate}T${toTwentyFourHourTime(startTime)}`,
+        } satisfies HomeScheduleDay;
+      });
+
+    return (
+      futureShifts.find(
+        (entry) => entry.startDateTime && new Date(entry.startDateTime).getTime() >= nowMs,
+      ) ?? null
+    );
+  }, [currentDate, effectiveScheduleEntries, nowMs]);
+
   const hasAtLeastTwoHours = nextShift
     ? new Date(nextShift.startDateTime as string).getTime() - nowMs >= 2 * 60 * 60 * 1000
     : false;
@@ -165,6 +236,13 @@ export default function PersonalHomePage() {
   const shiftHasStarted = nextShift
     ? nowMs >= new Date(nextShift.startDateTime as string).getTime()
     : false;
+  const employeeRequests = useMemo(
+    () =>
+      getAllTimeOffRequests(storedRequests)
+        .filter((request) => request.fullName === "Matthew Bayers")
+        .sort((a, b) => b.dateSubmitted.localeCompare(a.dateSubmitted)),
+    [storedRequests],
+  );
 
   const nextShiftAttendance = useMemo(
     () => {
@@ -174,7 +252,7 @@ export default function PersonalHomePage() {
 
       return getAllAttendanceEvents(storedEvents).find(
         (event) =>
-          event.employeeName === CURRENT_USER.fullName &&
+          event.employeeName === CURRENT_USER.displayName &&
           event.shiftDate === nextShift.dateIso,
       );
     },
@@ -190,7 +268,7 @@ export default function PersonalHomePage() {
 
     const newEvent: AttendanceEvent = {
       id: `attendance-${Date.now()}`,
-      employeeName: CURRENT_USER.fullName,
+      employeeName: CURRENT_USER.displayName,
       shiftDate: nextShift.dateIso,
       shiftLabel: nextShift.shiftLabel ?? "Scheduled",
       shiftStartTime: nextShift.startTime ?? "",
@@ -332,7 +410,7 @@ export default function PersonalHomePage() {
                     day.today ? styles.dateCellToday : "",
                     day.off ? styles.dateCellOff : "",
                   ].filter(Boolean).join(" ")}
-                  aria-label={`${day.name} ${day.num}, ${day.shift}`}
+                  aria-label={`${day.name} ${day.num}, ${day.off ? "Off" : `${day.startTime} to ${day.endTime}`}`}
                   onClick={() => setSelectedWeekDay(day)}
                 >
                   <span className={styles.dateCellNum}>{day.num}</span>
@@ -413,14 +491,38 @@ export default function PersonalHomePage() {
 
         <div className={shared.pCard}>
           <div className={shared.pCardBody}>
-            <div className="empty-state" style={{ padding: "20px 12px", textAlign: "center" }}>
-              <p className="mini-title" style={{ marginBottom: 4 }}>
-                No requests yet
-              </p>
-              <p className="mini-copy">
-                Time-off requests you submit will appear here with their status.
-              </p>
-            </div>
+            {employeeRequests.length === 0 ? (
+              <div className="empty-state" style={{ padding: "20px 12px", textAlign: "center" }}>
+                <p className="mini-title" style={{ marginBottom: 4 }}>
+                  No requests yet
+                </p>
+                <p className="mini-copy">
+                  Time-off requests you submit will appear here with their status.
+                </p>
+              </div>
+            ) : (
+              employeeRequests.slice(0, 3).map((request) => (
+                <div key={request.id} className={requestStyles.requestRow}>
+                  <div className={requestStyles.requestInfo}>
+                    <p className={requestStyles.requestInfoTitle}>{request.datesAbsent}</p>
+                    <p className={requestStyles.requestInfoDates}>
+                      {TIME_OFF_REASON_LABELS[request.reason]} · {TIME_OFF_STATUS_LABELS[request.status]}
+                    </p>
+                  </div>
+                  <span
+                    className={`badge ${
+                      request.status === "approved"
+                        ? "success"
+                        : request.status === "not_approved"
+                          ? "danger"
+                          : "warning"
+                    }`}
+                  >
+                    {TIME_OFF_STATUS_LABELS[request.status]}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
           <div className={shared.pCardFooter}>
             <Link

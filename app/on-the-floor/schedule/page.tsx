@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  loadStoredSchedule,
+  SCHEDULE_UPDATED_EVENT,
+} from "@/lib/mock-schedule-store";
+import type { ScheduleEntry } from "@/lib/mock-schedule";
 import styles from "./schedule.module.css";
-
-const AVAILABLE_WEEKS = ["Apr 4 - 10", "Apr 11 - 17", "Apr 18 - 24"];
 const DEPARTMENTS = ["dealer", "floor", "chip_runner"] as const;
 
 const DAYS = [
@@ -44,6 +47,17 @@ type ScheduleBoard = {
   rows: ScheduleRow[];
 };
 
+type AvailableWeek = {
+  key: string;
+  label: string;
+  dates: Array<{
+    key: DayKey;
+    label: string;
+    shortDate: string;
+    iso: string;
+  }>;
+};
+
 const SHIFT_STYLES: Record<string, ShiftValue> = {
   "7:45a": { label: "7:45a", tone: "pink" },
   "9:45a": { label: "9:45a", tone: "blue" },
@@ -67,99 +81,6 @@ const SHIFT_TONE_CLASS: Record<ShiftTone, string> = {
   coral: styles.floorScheduleShiftChipCoral,
   red: styles.floorScheduleShiftChipRed,
 };
-
-const DEALER_SCHEDULE: ScheduleRow[] = [
-  {
-    name: "Susan Tran",
-    sat: "OFF",
-    sun: SHIFT_STYLES["7:45p"],
-    mon: SHIFT_STYLES["7:45p"],
-    tue: SHIFT_STYLES["7:45p"],
-    wed: SHIFT_STYLES["7:45p"],
-    thu: SHIFT_STYLES["7:45p"],
-    fri: SHIFT_STYLES["7:45p"],
-  },
-  {
-    name: "Marcus Webb",
-    sat: "OFF",
-    sun: "OFF",
-    mon: SHIFT_STYLES["1:45p"],
-    tue: SHIFT_STYLES["1:45p"],
-    wed: SHIFT_STYLES["1:45p"],
-    thu: "OFF",
-    fri: SHIFT_STYLES["3:45p"],
-  },
-  {
-    name: "Priya Nair",
-    sat: SHIFT_STYLES["9:45a"],
-    sun: SHIFT_STYLES["3:45p"],
-    mon: SHIFT_STYLES["3:45p"],
-    tue: "OFF",
-    wed: SHIFT_STYLES["11:45a"],
-    thu: SHIFT_STYLES["11:45a"],
-    fri: SHIFT_STYLES["3:45p"],
-  },
-  {
-    name: "Carlos Ruiz",
-    sat: SHIFT_STYLES["5:45p"],
-    sun: "OFF",
-    mon: SHIFT_STYLES["9:45p"],
-    tue: SHIFT_STYLES["9:45p"],
-    wed: "OFF",
-    thu: SHIFT_STYLES["9:45p"],
-    fri: "OFF",
-  },
-  {
-    name: "Linda Ho",
-    sat: "OFF",
-    sun: "OFF",
-    mon: "OFF",
-    tue: "OFF",
-    wed: SHIFT_STYLES["11:45p"],
-    thu: SHIFT_STYLES["11:45p"],
-    fri: SHIFT_STYLES["11:45p"],
-  },
-  {
-    name: "Matt Bayers",
-    sat: SHIFT_STYLES["7:45p"],
-    sun: SHIFT_STYLES["3:45p"],
-    mon: "OFF",
-    tue: SHIFT_STYLES["9:45a"],
-    wed: SHIFT_STYLES["11:45a"],
-    thu: SHIFT_STYLES["9:45p"],
-    fri: SHIFT_STYLES["11:45p"],
-  },
-  {
-    name: "Jia Park",
-    sat: SHIFT_STYLES["9:45p"],
-    sun: "OFF",
-    mon: SHIFT_STYLES["5:45p"],
-    tue: "OFF",
-    wed: "OFF",
-    thu: SHIFT_STYLES["11:45a"],
-    fri: SHIFT_STYLES["3:45p"],
-  },
-  {
-    name: "Thomas Lee",
-    sat: "OFF",
-    sun: SHIFT_STYLES["3:45p"],
-    mon: SHIFT_STYLES["5:45p"],
-    tue: SHIFT_STYLES["11:45a"],
-    wed: SHIFT_STYLES["11:45a"],
-    thu: SHIFT_STYLES["11:45a"],
-    fri: "OFF",
-  },
-  {
-    name: "Fanny Duong",
-    sat: SHIFT_STYLES["3:45p"],
-    sun: SHIFT_STYLES["3:45p"],
-    mon: "OFF",
-    tue: "OFF",
-    wed: SHIFT_STYLES["11:45p"],
-    thu: SHIFT_STYLES["11:45p"],
-    fri: SHIFT_STYLES["11:45p"],
-  },
-];
 
 const FLOOR_SCHEDULE: ScheduleRow[] = [
   {
@@ -247,23 +168,25 @@ const CHIP_RUNNER_SCHEDULE: ScheduleRow[] = [
   },
 ];
 
-const SCHEDULE_BOARDS: ScheduleBoard[] = [
-  { id: "dealer", title: "Dealers Schedule Board", rows: DEALER_SCHEDULE },
-  { id: "floor", title: "Floor Schedule Board", rows: FLOOR_SCHEDULE },
-  { id: "chip_runner", title: "Chip Runners Schedule Board", rows: CHIP_RUNNER_SCHEDULE },
-];
-
-function ScheduleCell({ value }: { value: ScheduleRow[DayKey] }) {
+function ScheduleCell({
+  value,
+  hasPassed,
+}: {
+  value: ScheduleRow[DayKey];
+  hasPassed: boolean;
+}) {
   if (value === "OFF" || value === "RO") {
     return (
-      <td className={`${styles.floorScheduleGridCell} ${styles.floorScheduleGridCellOff}`}>
+      <td
+        className={`${styles.floorScheduleGridCell} ${styles.floorScheduleGridCellOff} ${hasPassed ? styles.floorScheduleDayPassed : ""}`}
+      >
         <span className={styles.floorScheduleOffText}>{value}</span>
       </td>
     );
   }
 
   return (
-    <td className={styles.floorScheduleGridCell}>
+    <td className={`${styles.floorScheduleGridCell} ${hasPassed ? styles.floorScheduleDayPassed : ""}`}>
       <span className={`${styles.floorScheduleShiftChip} ${SHIFT_TONE_CLASS[value.tone]}`}>
         {value.label}
       </span>
@@ -271,24 +194,163 @@ function ScheduleCell({ value }: { value: ScheduleRow[DayKey] }) {
   );
 }
 
+function formatWeekLabel(startIso: string, endIso: string) {
+  const start = new Date(`${startIso}T12:00:00`);
+  const end = new Date(`${endIso}T12:00:00`);
+  const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const endLabel = end.toLocaleDateString("en-US", { day: "numeric" });
+
+  return `${startLabel} - ${endLabel}`;
+}
+
+function formatShortDate(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function mapShiftTimeToCellValue(shiftTime: string, status: ScheduleEntry["status"]) {
+  if (status === "ro") {
+    return "RO" as const;
+  }
+
+  if (status !== "scheduled") {
+    return "OFF" as const;
+  }
+
+  const normalizedStart = shiftTime.split("–")[0]?.trim().toLowerCase() ?? "";
+  const shorthand = normalizedStart
+    .replace(":45", ":45")
+    .replace(" am", "a")
+    .replace(" pm", "p");
+
+  return SHIFT_STYLES[shorthand] ?? "OFF";
+}
+
+function buildAvailableWeeks(entries: ScheduleEntry[]): AvailableWeek[] {
+  const uniqueDates = [...new Set(entries.map((entry) => entry.shiftDate))].sort();
+  const weeks: AvailableWeek[] = [];
+
+  for (let index = 0; index < uniqueDates.length; index += 7) {
+    const weekDates = uniqueDates.slice(index, index + 7);
+
+    if (weekDates.length < 7) {
+      continue;
+    }
+
+    weeks.push({
+      key: weekDates[0],
+      label: formatWeekLabel(weekDates[0], weekDates[6]),
+      dates: DAYS.map((day, dayIndex) => ({
+        ...day,
+        shortDate: formatShortDate(weekDates[dayIndex]),
+        iso: weekDates[dayIndex],
+      })),
+    });
+  }
+
+  return weeks;
+}
+
+function buildDealerScheduleRows(entries: ScheduleEntry[], week: AvailableWeek | null): ScheduleRow[] {
+  if (!week) {
+    return [];
+  }
+
+  const dealerNames = [...new Set(
+    entries
+      .filter((entry) => entry.dept === "Dealer" || entry.dept === "Dual Rate")
+      .map((entry) => entry.employeeName),
+  )].sort((a, b) => a.localeCompare(b));
+
+  return dealerNames.map((name) => {
+    const row = {
+      name,
+      sat: "OFF" as ScheduleRow["sat"],
+      sun: "OFF" as ScheduleRow["sun"],
+      mon: "OFF" as ScheduleRow["mon"],
+      tue: "OFF" as ScheduleRow["tue"],
+      wed: "OFF" as ScheduleRow["wed"],
+      thu: "OFF" as ScheduleRow["thu"],
+      fri: "OFF" as ScheduleRow["fri"],
+    };
+
+    week.dates.forEach((day) => {
+      const entry = entries.find(
+        (scheduleEntry) =>
+          scheduleEntry.employeeName === name &&
+          scheduleEntry.shiftDate === day.iso,
+      );
+
+      if (entry) {
+        row[day.key] = mapShiftTimeToCellValue(entry.shiftTime, entry.status);
+      }
+    });
+
+    return row;
+  });
+}
+
 export default function FloorSchedulePage() {
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [selectedDepartment, setSelectedDepartment] =
     useState<(typeof DEPARTMENTS)[number]>("dealer");
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const availableWeeks = useMemo(() => buildAvailableWeeks(scheduleEntries), [scheduleEntries]);
+  const [selectedWeekKey, setSelectedWeekKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncScheduleEntries = () => {
+      setScheduleEntries(loadStoredSchedule());
+    };
+
+    syncScheduleEntries();
+    window.addEventListener("storage", syncScheduleEntries);
+    window.addEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+
+    return () => {
+      window.removeEventListener("storage", syncScheduleEntries);
+      window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWeekKey && availableWeeks[0]) {
+      setSelectedWeekKey(availableWeeks[0].key);
+    }
+  }, [availableWeeks, selectedWeekKey]);
+
+  const selectedWeek =
+    availableWeeks.find((week) => week.key === selectedWeekKey) ?? availableWeeks[0] ?? null;
+
+  const dealerSchedule = useMemo(
+    () => buildDealerScheduleRows(scheduleEntries, selectedWeek),
+    [scheduleEntries, selectedWeek],
+  );
+
+  const scheduleBoards: ScheduleBoard[] = [
+    { id: "dealer", title: "Dealers Schedule Board", rows: dealerSchedule },
+    { id: "floor", title: "Floor Schedule Board", rows: FLOOR_SCHEDULE },
+    { id: "chip_runner", title: "Chip Runners Schedule Board", rows: CHIP_RUNNER_SCHEDULE },
+  ];
+
   const selectedBoard =
-    SCHEDULE_BOARDS.find((board) => board.id === selectedDepartment) ?? SCHEDULE_BOARDS[0];
+    scheduleBoards.find((board) => board.id === selectedDepartment) ?? scheduleBoards[0];
 
   return (
     <>
       <div className={styles.floorControlBar}>
         <div className={styles.floorFilterRow}>
           <span className={styles.floorFilterLabel}>Week</span>
-          {AVAILABLE_WEEKS.map((week, index) => (
+          {availableWeeks.map((week) => (
             <button
-              key={week}
-              className={`${styles.floorPill} ${index === 0 ? styles.floorPillActive : ""}`}
+              key={week.key}
+              className={`${styles.floorPill} ${selectedWeek?.key === week.key ? styles.floorPillActive : ""}`}
               type="button"
+              onClick={() => setSelectedWeekKey(week.key)}
             >
-              {week}
+              {week.label}
             </button>
           ))}
         </div>
@@ -333,8 +395,11 @@ export default function FloorSchedulePage() {
                   <thead>
                     <tr>
                       <th className={styles.floorScheduleNameHead}>Name</th>
-                      {DAYS.map((day) => (
-                        <th key={day.key} className={styles.floorScheduleDayHead}>
+                      {(selectedWeek?.dates ?? DAYS).map((day) => (
+                        <th
+                          key={day.key}
+                          className={styles.floorScheduleDayHead}
+                        >
                           <span className={styles.floorScheduleDayLabel}>{day.label}</span>
                           <span className={styles.floorScheduleDayDate}>{day.shortDate}</span>
                         </th>
@@ -345,10 +410,11 @@ export default function FloorSchedulePage() {
                     {selectedBoard.rows.map((row) => (
                       <tr key={`${selectedBoard.title}-${row.name}`}>
                         <th className={styles.floorScheduleNameCell}>{row.name}</th>
-                        {DAYS.map((day) => (
+                        {(selectedWeek?.dates ?? DAYS).map((day) => (
                           <ScheduleCell
                             key={`${selectedBoard.title}-${row.name}-${day.key}`}
                             value={row[day.key]}
+                            hasPassed={"iso" in day && day.iso < todayIso}
                           />
                         ))}
                       </tr>

@@ -16,7 +16,19 @@ import {
   loadStoredAttendanceEvents,
   saveStoredAttendanceEvents,
 } from "@/lib/attendance-event-store";
-import { mockEmployees } from "@/lib/mock-data";
+import {
+  buildShiftTimeRange,
+  formatShiftStartOptionLabel,
+  getShiftStartLabel,
+  SHIFT_START_OPTIONS,
+  type ScheduleOverrideKind,
+} from "@/lib/schedule-overrides";
+import {
+  loadStoredSpecialtySchedule,
+  saveStoredSpecialtySchedule,
+  SPECIALTY_SCHEDULE_UPDATED_EVENT,
+  type SpecialtyScheduleEntry,
+} from "@/lib/specialty-schedule-store";
 import styles from "./log.module.css";
 
 type LogFilter = "all" | "points" | "psl";
@@ -27,6 +39,9 @@ function cx(...classes: Array<string | false | undefined>) {
 
 export default function FloorLogPage() {
   const [storedAttendanceEvents, setStoredAttendanceEvents] = useState<AttendanceEvent[]>([]);
+  const [specialtyScheduleEntries, setSpecialtyScheduleEntries] = useState<
+    SpecialtyScheduleEntry[]
+  >([]);
   const [filter, setFilter] = useState<LogFilter>("all");
   const [search, setSearch] = useState("");
   const [coverageSearch, setCoverageSearch] = useState("");
@@ -41,21 +56,14 @@ export default function FloorLogPage() {
     useState<AttendanceEventType>("call_out_point");
   const [editAttendancePslHours, setEditAttendancePslHours] =
     useState<AttendancePslHours>(2);
-
-  useEffect(() => {
-    const syncStoredEvents = () => {
-      setStoredAttendanceEvents(loadStoredAttendanceEvents());
-    };
-
-    syncStoredEvents();
-    window.addEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
-    window.addEventListener("storage", syncStoredEvents);
-
-    return () => {
-      window.removeEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
-      window.removeEventListener("storage", syncStoredEvents);
-    };
-  }, []);
+  const [specialtyChangeType, setSpecialtyChangeType] =
+    useState<ScheduleOverrideKind>("start_time_change");
+  const [specialtyChangeSearch, setSpecialtyChangeSearch] = useState("");
+  const [selectedSpecialtyEmployeeId, setSelectedSpecialtyEmployeeId] = useState("");
+  const [specialtyStartLabel, setSpecialtyStartLabel] =
+    useState<(typeof SHIFT_START_OPTIONS)[number]>("7:45 AM");
+  const [specialtyChangeNote, setSpecialtyChangeNote] = useState("");
+  const [specialtyChangeMessage, setSpecialtyChangeMessage] = useState("");
 
   const todayIso = toIsoDate(new Date());
   const dayLabel = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
@@ -65,6 +73,30 @@ export default function FloorLogPage() {
     month: "long",
     day: "numeric",
   }).format(new Date(`${todayIso}T12:00:00`));
+  const currentMinutes = getCurrentShiftMinutes(new Date());
+
+  useEffect(() => {
+    const syncStoredEvents = () => {
+      setStoredAttendanceEvents(loadStoredAttendanceEvents());
+    };
+    const syncSpecialtySchedule = () => {
+      setSpecialtyScheduleEntries(loadStoredSpecialtySchedule(todayIso));
+    };
+
+    syncStoredEvents();
+    syncSpecialtySchedule();
+    window.addEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
+    window.addEventListener(SPECIALTY_SCHEDULE_UPDATED_EVENT, syncSpecialtySchedule);
+    window.addEventListener("storage", syncStoredEvents);
+    window.addEventListener("storage", syncSpecialtySchedule);
+
+    return () => {
+      window.removeEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
+      window.removeEventListener(SPECIALTY_SCHEDULE_UPDATED_EVENT, syncSpecialtySchedule);
+      window.removeEventListener("storage", syncStoredEvents);
+      window.removeEventListener("storage", syncSpecialtySchedule);
+    };
+  }, [todayIso]);
 
   const todayAttendanceEvents = useMemo(
     () =>
@@ -77,29 +109,27 @@ export default function FloorLogPage() {
 
   const specialtyTeamMembers = useMemo(
     () =>
-      mockEmployees
-        .map((employee) => {
-          const primaryDepartment = employee.departmentAssignments.find(
-            (assignment) => assignment.isPrimary,
-          )?.department.departmentName;
-          const fullName =
-            employee.aliases.find((alias) => alias.aliasName.includes(" "))?.aliasName ??
-            `${employee.firstName} ${employee.lastName}`.trim();
+      specialtyScheduleEntries.map((entry) => {
+        const [shiftStartTime, shiftEndTime] =
+          entry.status === "scheduled"
+            ? entry.shiftTime.split("–").map((part) => part.trim())
+            : [entry.departmentLabel, "Team"];
 
-          return {
-            id: employee.id,
-            name: fullName,
-            departmentLabel: primaryDepartment ?? "Team",
-            shiftLabel: "Coverage",
-            shiftStartTime: primaryDepartment ?? "Specialty",
-            shiftEndTime: "Team",
-          };
-        })
-        .filter((employee) => {
-          const normalizedDept = employee.departmentLabel.toLowerCase();
-          return normalizedDept.includes("floor") || normalizedDept.includes("chip");
-        }),
-    [],
+        return {
+          id: entry.employeeId,
+          name: entry.employeeName,
+          departmentLabel: entry.departmentLabel,
+          shiftLabel:
+            entry.status === "scheduled"
+              ? getShiftStartLabel(entry.shiftTime)
+              : "Coverage",
+          shiftStartTime,
+          shiftEndTime,
+          shiftTime: entry.shiftTime,
+          status: entry.status,
+        };
+      }),
+    [specialtyScheduleEntries],
   );
 
   const filteredCoverageMembers = useMemo(() => {
@@ -130,6 +160,50 @@ export default function FloorLogPage() {
     () => todayAttendanceEvents.filter((event) => specialtyNameSet.has(event.employeeName)),
     [specialtyNameSet, todayAttendanceEvents],
   );
+  const specialtyScheduleCandidates = useMemo(() => {
+    return specialtyScheduleEntries
+      .filter((entry) =>
+        specialtyChangeType === "start_time_change"
+          ? entry.status === "scheduled"
+          : entry.status === "off",
+      )
+      .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  }, [specialtyChangeType, specialtyScheduleEntries]);
+  const filteredSpecialtyScheduleCandidates = useMemo(() => {
+    const normalizedSearch = specialtyChangeSearch.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return [];
+    }
+
+    return specialtyScheduleCandidates
+      .filter((entry) => entry.employeeName.toLowerCase().includes(normalizedSearch))
+      .slice(0, 8);
+  }, [specialtyChangeSearch, specialtyScheduleCandidates]);
+  const selectedSpecialtyScheduleEntry = useMemo(
+    () =>
+      specialtyScheduleCandidates.find(
+        (entry) => entry.employeeId === selectedSpecialtyEmployeeId,
+      ) ?? null,
+    [selectedSpecialtyEmployeeId, specialtyScheduleCandidates],
+  );
+  const availableSpecialtyStartOptions = useMemo(
+    () =>
+      SHIFT_START_OPTIONS.filter(
+        (label) => getShiftLabelMinutes(label) > currentMinutes,
+      ),
+    [currentMinutes],
+  );
+
+  useEffect(() => {
+    if (availableSpecialtyStartOptions.length === 0) {
+      return;
+    }
+
+    if (!availableSpecialtyStartOptions.includes(specialtyStartLabel)) {
+      setSpecialtyStartLabel(availableSpecialtyStartOptions[0]);
+    }
+  }, [availableSpecialtyStartOptions, specialtyStartLabel]);
 
   const filteredEvents = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -230,10 +304,213 @@ export default function FloorLogPage() {
     setNewCoverageAttendancePslHours(2);
   }
 
+  function submitSpecialtyScheduleChange() {
+    if (!selectedSpecialtyScheduleEntry) {
+      return;
+    }
+
+    const nextShiftTime = buildShiftTimeRange(specialtyStartLabel);
+
+    if (
+      specialtyChangeType === "start_time_change" &&
+      getShiftStartLabel(selectedSpecialtyScheduleEntry.shiftTime) === specialtyStartLabel
+    ) {
+      setSpecialtyChangeMessage("That team member already has this start time.");
+      return;
+    }
+
+    const nextEntries = specialtyScheduleEntries.map((entry) =>
+      entry.employeeId !== selectedSpecialtyScheduleEntry.employeeId
+        ? entry
+        : {
+            ...entry,
+            shiftTime: nextShiftTime,
+            status: "scheduled" as const,
+          },
+    );
+
+    setSpecialtyScheduleEntries(nextEntries);
+    saveStoredSpecialtySchedule(todayIso, nextEntries);
+    setSpecialtyChangeMessage(
+      specialtyChangeType === "dealer_added"
+        ? "Team member added to today’s coverage."
+        : "Start time updated for today’s coverage.",
+    );
+    setSelectedSpecialtyEmployeeId("");
+    setSpecialtyChangeSearch("");
+    setSpecialtyStartLabel(
+      availableSpecialtyStartOptions[0] ?? SHIFT_START_OPTIONS[0],
+    );
+    setSpecialtyChangeNote("");
+    window.setTimeout(() => setSpecialtyChangeMessage(""), 4000);
+  }
+
   return (
     <>
       <main className={styles.floorContent}>
         <div className={styles.floorLogLayout}>
+          <div className={`${styles.floorSection} ${styles.floorCoverageSection}`}>
+            <div className={styles.floorSectionHeader}>
+              <div>
+                <p className={styles.floorSectionTitle}>Schedule Adjustments</p>
+                <p className={styles.floorSectionSubtitle}>
+                  Change a start time or add a floor or chip runner to today&apos;s coverage.
+                </p>
+              </div>
+            </div>
+
+            <div className={`${styles.floorSectionBody} ${styles.floorScheduleChangeBody}`}>
+              <div className={`${styles.floorAttendanceCreate} ${styles.floorScheduleChangeForm}`}>
+                <div className="field-stack">
+                  <span className="field-label">Change Type</span>
+                  <div className={styles.floorScheduleChangeTypeRow}>
+                    <button
+                      type="button"
+                      className={cx(
+                        styles.floorPill,
+                        styles.floorScheduleChangePill,
+                        specialtyChangeType === "start_time_change" && styles.floorPillActive,
+                      )}
+                      onClick={() => setSpecialtyChangeType("start_time_change")}
+                    >
+                      Change Start Time
+                    </button>
+                    <button
+                      type="button"
+                      className={cx(
+                        styles.floorPill,
+                        styles.floorScheduleChangePill,
+                        specialtyChangeType === "dealer_added" && styles.floorPillActive,
+                      )}
+                      onClick={() => setSpecialtyChangeType("dealer_added")}
+                    >
+                      Add Team Member
+                    </button>
+                  </div>
+                </div>
+
+                <div className="field-stack">
+                  <label className="field-label" htmlFor="specialty-change-start">
+                    {specialtyChangeType === "dealer_added" ? "Shift Time" : "New Start Time"}
+                  </label>
+                  <select
+                    id="specialty-change-start"
+                    className="text-input"
+                    value={specialtyStartLabel}
+                    onChange={(event) =>
+                      setSpecialtyStartLabel(
+                        event.target.value as (typeof SHIFT_START_OPTIONS)[number],
+                      )
+                    }
+                  >
+                    {availableSpecialtyStartOptions.map((label) => (
+                      <option key={label} value={label}>
+                        {formatShiftStartOptionLabel(label)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field-stack">
+                  <label className="field-label" htmlFor="specialty-change-search">
+                    {specialtyChangeType === "dealer_added"
+                      ? "Search Available Team Members"
+                      : "Search Scheduled Team Members"}
+                  </label>
+                  <input
+                    id="specialty-change-search"
+                    className="text-input"
+                    type="text"
+                    value={specialtyChangeSearch}
+                    onChange={(event) => {
+                      setSpecialtyChangeSearch(event.target.value);
+                      setSelectedSpecialtyEmployeeId("");
+                    }}
+                    placeholder={
+                      specialtyChangeType === "dealer_added"
+                        ? "Start typing an available floor or chip runner"
+                        : "Start typing a scheduled floor or chip runner"
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                {specialtyChangeSearch.trim() ? (
+                  <div className={styles.floorScheduleChangeResults}>
+                    {filteredSpecialtyScheduleCandidates.length === 0 ? (
+                      <div className={styles.floorAttendanceNoResults}>
+                        {specialtyChangeType === "dealer_added"
+                          ? "No available floor or chip runner staff match that search."
+                          : "No scheduled floor or chip runner staff match that search."}
+                      </div>
+                    ) : (
+                      filteredSpecialtyScheduleCandidates.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className={cx(
+                            styles.floorAttendanceResult,
+                            selectedSpecialtyEmployeeId === entry.employeeId &&
+                              styles.floorAttendanceResultActive,
+                          )}
+                          onClick={() => {
+                            setSelectedSpecialtyEmployeeId(entry.employeeId);
+                            setSpecialtyChangeSearch(entry.employeeName);
+                          }}
+                        >
+                          <span className={styles.floorAttendanceResultName}>
+                            {entry.employeeName}
+                          </span>
+                          <span className={styles.floorAttendanceResultMeta}>
+                            {entry.shiftTime === "OFF" ? "Off today" : entry.shiftTime}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                ) : null}
+
+                {selectedSpecialtyScheduleEntry ? (
+                  <p className={styles.floorScheduleChangeMeta}>
+                    {specialtyChangeType === "dealer_added"
+                      ? `Current status: ${selectedSpecialtyScheduleEntry.shiftTime}`
+                      : `Current shift: ${selectedSpecialtyScheduleEntry.shiftTime}`}
+                  </p>
+                ) : null}
+
+                <div className="field-stack">
+                  <label className="field-label" htmlFor="specialty-change-note">
+                    Note
+                  </label>
+                  <textarea
+                    id="specialty-change-note"
+                    className={`text-input ${styles.floorScheduleChangeNote}`}
+                    rows={3}
+                    value={specialtyChangeNote}
+                    onChange={(event) => setSpecialtyChangeNote(event.target.value)}
+                    placeholder="Add a quick note for the team."
+                    style={{ resize: "vertical" }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className={`primary-button ${styles.floorScheduleChangeSubmit}`}
+                  disabled={!selectedSpecialtyScheduleEntry}
+                  onClick={submitSpecialtyScheduleChange}
+                >
+                  {specialtyChangeType === "dealer_added"
+                    ? "Add Team Member"
+                    : "Change Start Time"}
+                </button>
+
+                {specialtyChangeMessage ? (
+                  <p className={styles.floorScheduleChangeMeta}>{specialtyChangeMessage}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <div className={`${styles.floorSection} ${styles.floorCoverageSection}`}>
             <div className={styles.floorSectionHeader}>
               <div>
@@ -738,4 +1015,27 @@ function getAttendanceActionLabel(event: AttendanceEvent) {
   }
 
   return "PSL Leave Early";
+}
+
+function getShiftLabelMinutes(label: string) {
+  const [timePart, meridiem] = label.split(" ");
+  const [rawHour, rawMinute = "0"] = timePart.split(":");
+  let hour = Number(rawHour) % 12;
+
+  if (meridiem === "PM") {
+    hour += 12;
+  }
+
+  let totalMinutes = hour * 60 + Number(rawMinute);
+
+  if (hour < 6) {
+    totalMinutes += 24 * 60;
+  }
+
+  return totalMinutes;
+}
+
+function getCurrentShiftMinutes(now: Date) {
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+  return now.getHours() < 6 ? totalMinutes + 24 * 60 : totalMinutes;
 }
