@@ -1,61 +1,57 @@
-.personalProfileCardHeader {
-  justify-content: center;
-  text-align: center;
-}
-
-.personalProfileCardBody {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.personalProfileSummary {
+.profileSummary {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 18px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ivory-100) 7%, transparent);
 }
 
 .profileAvatar {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--background-top-glow);
-  color: var(--gold-dark);
+  background: color-mix(in srgb, var(--gold) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+  color: var(--gold-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: var(--text-xl-plus);
+  font-weight: 900;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
   flex-shrink: 0;
 }
 
-.profileIdentityTitle {
-  margin: 0 0 2px;
-  font-weight: 800;
-  font-size: var(--text-base-plus);
+.profileIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.profileIdentitySubtle,
-.profileMutedValue {
+.profileName {
   margin: 0;
+  font-size: var(--text-base-plus);
+  font-weight: 800;
+  color: var(--ivory-100);
+  line-height: 1.2;
+}
+
+.profileRole {
+  margin: 0;
+  font-size: var(--text-sm);
   color: var(--foreground-muted);
-  font-size: var(--text-md-minus);
+  font-weight: 500;
 }
 
-.dataList {
-  width: 100%;
-  max-width: 440px;
-}
-
-.passwordNotice {
-  margin-bottom: 14px;
+.dataValue {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--foreground);
 }
 
 .fullWidthButton {
   width: 100%;
   text-align: center;
   min-height: 48px;
-  opacity: 0.5;
 }

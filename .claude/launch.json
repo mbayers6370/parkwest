@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Parkwest Dev",
+      "runtimeExecutable": "/Users/matthewbayers/.nvm/versions/node/v20.20.2/bin/node",
+      "runtimeArgs": ["/Users/matthewbayers/Desktop/Parkwest/node_modules/.bin/next", "dev"],
+      "port": 3000,
+      "autoPort": false
+    }
+  ]
+}

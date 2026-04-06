@@ -109,6 +109,199 @@ textarea {
   padding: 24px 0 72px;
 }
 
+.landing-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -5%, color-mix(in srgb, var(--gold-dark) 18%, transparent), transparent),
+    var(--charcoal-900);
+}
+
+.landing-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+}
+
+.landing-topbar-spacer {
+  display: none;
+}
+
+.landing-workspace-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.landing-workspace-links .portal-topbar-link {
+  background: color-mix(in srgb, var(--ivory-100) 5%, transparent);
+  color: color-mix(in srgb, var(--ivory-100) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ivory-100) 10%, transparent);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.landing-workspace-links .portal-topbar-link:hover {
+  color: var(--ivory-100);
+  border-color: color-mix(in srgb, var(--gold) 35%, transparent);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.landing-auth-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0 32px;
+}
+
+.landing-auth-card {
+  width: min(100%, 380px);
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.landing-auth-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landing-auth-logo {
+  width: 168px;
+  height: auto;
+  display: block;
+}
+
+.landing-auth-copy-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.landing-auth-heading {
+  margin: 0;
+  font-family: var(--font-display-family);
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ivory-100);
+}
+
+.landing-auth-subcopy {
+  margin: 0;
+  color: color-mix(in srgb, var(--ivory-100) 45%, transparent);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+.landing-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.landing-auth-field {
+  gap: 8px;
+}
+
+.landing-auth-label {
+  display: block;
+  margin: 0;
+  color: var(--gold-light);
+  opacity: 0.9;
+  font-size: 0.76rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+/* Override global .text-input styles for the auth card */
+.landing-auth-card .landing-auth-input {
+  min-height: 54px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--ivory-100) 18%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ivory-100) 10%, transparent);
+  color: var(--ivory-100);
+  font-size: 1rem;
+  transition: border-color 0.15s ease;
+  outline: none;
+  box-shadow: none;
+}
+
+.landing-auth-card .landing-auth-input::placeholder {
+  color: color-mix(in srgb, var(--ivory-100) 50%, transparent);
+}
+
+.landing-auth-card .landing-auth-input:focus {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: color-mix(in srgb, var(--ivory-100) 12%, transparent);
+  outline: none;
+  box-shadow: none;
+}
+
+.landing-auth-actions {
+  padding-top: 4px;
+}
+
+/* Override global .primary-button styles for the auth card */
+.landing-auth-card .landing-auth-submit {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  border-radius: 12px;
+  border: none;
+  color: var(--charcoal-900);
+  background: var(--gold);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.15s ease;
+}
+
+.landing-auth-card .landing-auth-submit:hover:not(:disabled) {
+  background: var(--gold-light);
+  border: none;
+  color: var(--charcoal-900);
+}
+
+@media (max-width: 480px) {
+  .landing-auth-card {
+    padding: 28px 20px 24px;
+  }
+
+  .landing-auth-logo {
+    width: 142px;
+  }
+}
+
 .brand-title {
   font-family: var(--font-display-family);
   font-weight: var(--font-display-weight-bold);
