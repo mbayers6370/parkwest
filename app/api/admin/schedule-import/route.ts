@@ -46,59 +46,72 @@ export async function POST(request: Request) {
       });
     }
 
+    let persistenceMessage: string | undefined;
+
     if (shouldPersist) {
-      const propertyRecord = property
-        ? await prisma.property.upsert({
-            where: {
-              propertyKey: property.key,
-            },
-            update: {
-              propertyName: property.name,
-            },
-            create: {
-              propertyKey: property.key,
-              propertyName: property.name,
-            },
-            select: {
-              id: true,
-            },
-          })
-        : null;
+      try {
+        const propertyRecord = property
+          ? await prisma.property.upsert({
+              where: {
+                propertyKey: property.key,
+              },
+              update: {
+                propertyName: property.name,
+              },
+              create: {
+                propertyKey: property.key,
+                propertyName: property.name,
+              },
+              select: {
+                id: true,
+              },
+            })
+          : null;
 
-      const batch = await prisma.scheduleImportBatch.create({
-        data: {
-          propertyIdFk: propertyRecord?.id,
-          originalFilename: file.name,
-          fileType: file.type || "application/octet-stream",
-          importStatus: ScheduleImportStatus.NEEDS_REVIEW,
-          weekStart: new Date(),
-          weekEnd: new Date(),
-          totalRows: preview.totalRows,
-          matchedRows: 0,
-          unmatchedRows: preview.totalRows,
-          ambiguousRows: 0,
-          rows: {
-            create: preview.rows.map((row) => ({
-              sourceRowNumber: row.rowNumber,
-              sourceEmployeeName: row.cells[0] ?? "",
-              normalizedSourceEmployeeName: (row.cells[0] ?? "")
-                .toLowerCase()
-                .replace(/[^\p{L}\p{N}]+/gu, " ")
-                .trim(),
-              matchStatus: ScheduleImportMatchStatus.UNMATCHED,
-              rawPayloadJson: row,
-            })),
+        const batch = await prisma.scheduleImportBatch.create({
+          data: {
+            propertyIdFk: propertyRecord?.id,
+            originalFilename: file.name,
+            fileType: file.type || "application/octet-stream",
+            importStatus: ScheduleImportStatus.NEEDS_REVIEW,
+            weekStart: new Date(),
+            weekEnd: new Date(),
+            totalRows: preview.totalRows,
+            matchedRows: 0,
+            unmatchedRows: preview.totalRows,
+            ambiguousRows: 0,
+            rows: {
+              create: preview.rows.map((row) => ({
+                sourceRowNumber: row.rowNumber,
+                sourceEmployeeName: row.cells[0] ?? "",
+                normalizedSourceEmployeeName: (row.cells[0] ?? "")
+                  .toLowerCase()
+                  .replace(/[^\p{L}\p{N}]+/gu, " ")
+                  .trim(),
+                matchStatus: ScheduleImportMatchStatus.UNMATCHED,
+                rawPayloadJson: row,
+              })),
+            },
           },
-        },
-        select: {
-          id: true,
-        },
-      });
+          select: {
+            id: true,
+          },
+        });
 
-      importBatchId = batch.id;
+        importBatchId = batch.id;
+      } catch (persistenceError) {
+        console.error("Schedule import persistence failed", persistenceError);
+        persistenceMessage =
+          "Spreadsheet preview is available, but schedule persistence is not ready yet. Apply the latest database migrations, then publish again.";
+      }
     }
 
-    return NextResponse.json({ preview, importBatchId, mockMode: false });
+    return NextResponse.json({
+      preview,
+      importBatchId,
+      mockMode: Boolean(persistenceMessage),
+      persistenceMessage,
+    });
   } catch (error) {
     console.error("Schedule import preview failed", error);
 
