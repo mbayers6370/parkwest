@@ -24,10 +24,13 @@ import {
   saveStoredAttendanceEvents,
 } from "@/lib/attendance-event-store";
 import {
-  loadStoredSchedule,
   SCHEDULE_UPDATED_EVENT,
 } from "@/lib/mock-schedule-store";
 import { type ScheduleEntry } from "@/lib/mock-schedule";
+import {
+  loadCurrentAndFuturePublishedScheduleEntries,
+  PUBLISHED_SCHEDULE_UPDATED_EVENT,
+} from "@/lib/published-schedule-store";
 import {
   getMostRecentWorkedShiftEnd,
   parseShiftRange,
@@ -404,7 +407,8 @@ export default function OnTheFloorNowPage() {
       setGiveawayRequests(loadStoredShiftGiveawayRequests());
     };
     const syncScheduleEntries = () => {
-      setScheduleEntries(loadStoredSchedule());
+      const publishedEntries = loadCurrentAndFuturePublishedScheduleEntries("580");
+      setScheduleEntries(publishedEntries);
     };
     const syncScheduleOverrides = () => {
       setScheduleOverrides(loadStoredScheduleOverrides());
@@ -424,6 +428,7 @@ export default function OnTheFloorNowPage() {
       syncGiveawayRequests,
     );
     window.addEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+    window.addEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
     window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
 
     return () => {
@@ -436,6 +441,7 @@ export default function OnTheFloorNowPage() {
         syncGiveawayRequests,
       );
       window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+      window.removeEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
       window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
     };
   }, []);
@@ -1626,7 +1632,10 @@ function createShiftSlotsForDate(
           entry.status === "scheduled" &&
           getShiftStartLabel(entry.shiftTime) === template.label,
       )
-      .sort((a, b) => a.employeeName.localeCompare(b.employeeName))
+      .sort(
+        (a, b) =>
+          (a.sourceOrder ?? Number.MAX_SAFE_INTEGER) - (b.sourceOrder ?? Number.MAX_SAFE_INTEGER),
+      )
       .map((entry) => createDealerEntry(entry.employeeName, template.label, shiftDate));
 
     return {

@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  loadStoredSchedule,
-  SCHEDULE_UPDATED_EVENT,
-} from "@/lib/mock-schedule-store";
+  loadCurrentAndFuturePublishedScheduleEntries,
+  PUBLISHED_SCHEDULE_UPDATED_EVENT,
+} from "@/lib/published-schedule-store";
 import type { ScheduleEntry } from "@/lib/mock-schedule";
+import { getScheduleShiftFamily } from "@/lib/schedule-color-system";
 import styles from "./schedule.module.css";
 const DEPARTMENTS = ["dealer", "floor", "chip_runner"] as const;
 
@@ -211,15 +212,33 @@ function formatShortDate(iso: string) {
 }
 
 function mapShiftTimeToCellValue(shiftTime: string, status: ScheduleEntry["status"]) {
-  if (status === "ro") {
+  return mapScheduleEntryToCellValue({
+    shiftTime,
+    originalShiftLabel: undefined,
+    status,
+  });
+}
+
+function mapScheduleEntryToCellValue(entry: Pick<ScheduleEntry, "shiftTime" | "originalShiftLabel" | "status">) {
+  if (entry.status === "ro") {
     return "RO" as const;
   }
 
-  if (status !== "scheduled") {
+  if (entry.status !== "scheduled") {
     return "OFF" as const;
   }
 
-  const normalizedStart = shiftTime.split("–")[0]?.trim().toLowerCase() ?? "";
+  const originalLabel = entry.originalShiftLabel?.trim().toLowerCase() ?? "";
+  const family = originalLabel ? getScheduleShiftFamily(originalLabel) : null;
+
+  if (family) {
+    return {
+      label: family.displayLabel,
+      tone: family.tone,
+    } as ShiftValue;
+  }
+
+  const normalizedStart = entry.shiftTime.split("–")[0]?.trim().toLowerCase() ?? "";
   const shorthand = normalizedStart
     .replace(":45", ":45")
     .replace(" am", "a")
@@ -258,11 +277,19 @@ function buildDealerScheduleRows(entries: ScheduleEntry[], week: AvailableWeek |
     return [];
   }
 
-  const dealerNames = [...new Set(
-    entries
-      .filter((entry) => entry.dept === "Dealer" || entry.dept === "Dual Rate")
-      .map((entry) => entry.employeeName),
-  )].sort((a, b) => a.localeCompare(b));
+  const dealerNames = entries
+    .filter((entry) => entry.dept === "Dealer" || entry.dept === "Dual Rate")
+    .sort(
+      (a, b) =>
+        (a.sourceOrder ?? Number.MAX_SAFE_INTEGER) - (b.sourceOrder ?? Number.MAX_SAFE_INTEGER),
+    )
+    .reduce<string[]>((names, entry) => {
+      if (!names.includes(entry.employeeName)) {
+        names.push(entry.employeeName);
+      }
+
+      return names;
+    }, []);
 
   return dealerNames.map((name) => {
     const row = {
@@ -284,7 +311,7 @@ function buildDealerScheduleRows(entries: ScheduleEntry[], week: AvailableWeek |
       );
 
       if (entry) {
-        row[day.key] = mapShiftTimeToCellValue(entry.shiftTime, entry.status);
+        row[day.key] = mapScheduleEntryToCellValue(entry);
       }
     });
 
@@ -302,16 +329,16 @@ export default function FloorSchedulePage() {
 
   useEffect(() => {
     const syncScheduleEntries = () => {
-      setScheduleEntries(loadStoredSchedule());
+      setScheduleEntries(loadCurrentAndFuturePublishedScheduleEntries("580"));
     };
 
     syncScheduleEntries();
     window.addEventListener("storage", syncScheduleEntries);
-    window.addEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+    window.addEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
 
     return () => {
       window.removeEventListener("storage", syncScheduleEntries);
-      window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
+      window.removeEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
     };
   }, []);
 

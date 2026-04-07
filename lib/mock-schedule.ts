@@ -7,8 +7,10 @@ export type ScheduleEntry = {
   dayShort: string;
   dayLabel: string;
   shiftTime: string;
+  originalShiftLabel?: string;
   dept: string;
   status: ScheduleStatus;
+  sourceOrder?: number;
 };
 
 export const SCHEDULE_STORAGE_KEY = "parkwest-mock-schedule";

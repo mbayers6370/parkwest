@@ -97,13 +97,16 @@
 
 .floorScheduleSheetBody {
   padding: 20px 22px 24px;
+  max-height: calc(100vh - 260px);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--ivory-100) 94%, transparent), var(--surface)),
     radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 8%, transparent), transparent 45%);
 }
 
 .floorScheduleMatrixWrap {
-  overflow-x: auto;
+  max-height: calc(100vh - 320px);
+  overflow: auto;
+  padding-bottom: 12px;
   border: 1px solid color-mix(in srgb, var(--charcoal-500) 16%, var(--ivory-100));
   border-radius: 20px;
   background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
@@ -117,17 +120,24 @@
 }
 
 .floorScheduleMatrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   padding: 14px 10px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--charcoal-500) 16%, var(--ivory-100));
   background: color-mix(in srgb, var(--ivory-100) 95%, var(--gold-light) 5%);
 }
 
 .floorScheduleNameHead {
+  position: sticky;
+  left: 0;
+  z-index: 4;
   min-width: 182px;
   text-align: left;
   font-size: var(--text-sm-plus);
   font-weight: 800;
   color: var(--foreground-emphasis);
+  background: color-mix(in srgb, var(--ivory-100) 95%, var(--gold-light) 5%);
 }
 
 .floorScheduleDayHead {
@@ -164,6 +174,9 @@
 }
 
 .floorScheduleNameCell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
   padding: 12px 14px;
   text-align: left;
   font-size: var(--text-md);
@@ -278,5 +291,33 @@
 @media (min-width: 900px) {
   .floorSchedulePageMain {
     grid-column: 1 / -1;
+  }
+
+  .floorScheduleSheet {
+    max-height: calc(98vh - 240px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .floorScheduleSheetBody {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .floorScheduleMatrixWrap {
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 899px) {
+  .floorScheduleSheetBody {
+    max-height: none;
+  }
+
+  .floorScheduleMatrixWrap {
+    max-height: none;
   }
 }

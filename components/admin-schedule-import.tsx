@@ -69,9 +69,9 @@ export function AdminScheduleImport() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(false);
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
   const [publishConflict, setPublishConflict] = useState<{
     incomingWeek: string;
     currentWeek: string;
@@ -87,7 +87,7 @@ export function AdminScheduleImport() {
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
+    setPublishSuccess(null);
     setPreview(null);
 
     try {
@@ -117,13 +117,6 @@ export function AdminScheduleImport() {
 
       setPreview(data.preview);
       setMockMode(Boolean(data.mockMode));
-      if (data.persistenceMessage) {
-        setSuccess(data.persistenceMessage);
-      } else if (data.importBatchId) {
-        setSuccess(
-          `Saved import batch ${data.importBatchId}.${data.mockMode ? " Ready to publish in mock mode." : ""}`,
-        );
-      }
     } catch (submitError) {
       setError((submitError as Error).message);
     } finally {
@@ -167,7 +160,7 @@ export function AdminScheduleImport() {
       shiftFamilies: preview.shiftFamilies,
     });
     setPublishConflict(null);
-    setSuccess(
+    setPublishSuccess(
       `${preview.sheets[0]?.displayName ?? preview.fileName} was published successfully.${mockMode ? " Mock mode is on." : ""}`,
     );
   }
@@ -265,15 +258,6 @@ export function AdminScheduleImport() {
           </div>
         </div>
       ) : null}
-      {success ? (
-        <div className="notice-card ok">
-          <div>
-            <p className="notice-title">Publish successful</p>
-            <p className="notice-body">{success}</p>
-          </div>
-        </div>
-      ) : null}
-
         {preview ? (
           <section className="stack">
           <div className="result-card schedule-import-summary-card">
@@ -357,6 +341,29 @@ export function AdminScheduleImport() {
           </section>
         ) : null}
       </div>
+      {publishSuccess ? (
+        <div className="admin-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="publish-success-title">
+          <div className="admin-confirm-modal">
+            <div className="admin-confirm-header">
+              <div>
+                <p className="admin-confirm-title" id="publish-success-title">
+                  Schedule published
+                </p>
+                <p className="admin-confirm-copy">{publishSuccess}</p>
+              </div>
+            </div>
+            <div className="admin-confirm-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setPublishSuccess(null)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {publishConflict ? (
         <div className="admin-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="publish-overwrite-title">
           <div className="admin-confirm-modal">
