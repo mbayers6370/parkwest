@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { isMockModeEnabled, mockEmployees } from "@/lib/mock-data";
+import { isMockModeEnabled, mockEmployees, mockPropertyAccess } from "@/lib/mock-data";
 import { DEFAULT_PROPERTIES, findDefaultPropertyByKey } from "@/lib/properties";
 
 export type PropertySummary = {
@@ -10,23 +10,33 @@ export type PropertySummary = {
   employeeCount: number;
   employeeImportCount: number;
   lastEmployeeImportAt: string | null;
+  adminCount: number;
+  managerCount: number;
 };
 
 export async function getPropertySummaries(): Promise<PropertySummary[]> {
   if (isMockModeEnabled()) {
     return DEFAULT_PROPERTIES.map((property) => {
       const employeeCount = mockEmployees.filter(
-        (employee) => (employee.propertyKey ?? "580").toLowerCase() === property.key,
+        (employee) => (employee.propertyKey ?? "").toLowerCase() === property.key,
+      ).length;
+      const adminCount = mockPropertyAccess.filter(
+        (entry) => entry.propertyKey === property.key && entry.roleKey === "ADMIN",
+      ).length;
+      const managerCount = mockPropertyAccess.filter(
+        (entry) => entry.propertyKey === property.key && entry.roleKey === "MANAGER",
       ).length;
 
       return {
         id: `mock-property-${property.key}`,
         propertyKey: property.key,
         propertyName: property.name,
-        active: true,
+        active: property.key === "580",
         employeeCount,
         employeeImportCount: employeeCount > 0 ? 1 : 0,
-        lastEmployeeImportAt: employeeCount > 0 ? new Date().toISOString() : null,
+        lastEmployeeImportAt: employeeCount > 0 ? "2026-04-04T18:15:00.000Z" : null,
+        adminCount,
+        managerCount,
       };
     });
   }
@@ -72,6 +82,8 @@ export async function getPropertySummaries(): Promise<PropertySummary[]> {
         employeeImportCount: property?._count.employeeImportBatches ?? 0,
         lastEmployeeImportAt:
           property?.employeeImportBatches[0]?.importedAt.toISOString() ?? null,
+        adminCount: 0,
+        managerCount: 0,
       };
     });
   } catch {
@@ -83,6 +95,8 @@ export async function getPropertySummaries(): Promise<PropertySummary[]> {
       employeeCount: 0,
       employeeImportCount: 0,
       lastEmployeeImportAt: null,
+      adminCount: 0,
+      managerCount: 0,
     }));
   }
 }
@@ -98,17 +112,25 @@ export async function getPropertySummaryByKey(
     }
 
     const employeeCount = mockEmployees.filter(
-      (employee) => (employee.propertyKey ?? "580").toLowerCase() === property.key,
+      (employee) => (employee.propertyKey ?? "").toLowerCase() === property.key,
+    ).length;
+    const adminCount = mockPropertyAccess.filter(
+      (entry) => entry.propertyKey === property.key && entry.roleKey === "ADMIN",
+    ).length;
+    const managerCount = mockPropertyAccess.filter(
+      (entry) => entry.propertyKey === property.key && entry.roleKey === "MANAGER",
     ).length;
 
     return {
       id: `mock-property-${property.key}`,
       propertyKey: property.key,
       propertyName: property.name,
-      active: true,
+      active: property.key === "580",
       employeeCount,
       employeeImportCount: employeeCount > 0 ? 1 : 0,
-      lastEmployeeImportAt: employeeCount > 0 ? new Date().toISOString() : null,
+      lastEmployeeImportAt: employeeCount > 0 ? "2026-04-04T18:15:00.000Z" : null,
+      adminCount,
+      managerCount,
     };
   }
 
@@ -155,6 +177,8 @@ export async function getPropertySummaryByKey(
         employeeCount: 0,
         employeeImportCount: 0,
         lastEmployeeImportAt: null,
+        adminCount: 0,
+        managerCount: 0,
       };
     }
 
@@ -166,6 +190,8 @@ export async function getPropertySummaryByKey(
       employeeCount: property._count.employees,
       employeeImportCount: property._count.employeeImportBatches,
       lastEmployeeImportAt: property.employeeImportBatches[0]?.importedAt.toISOString() ?? null,
+      adminCount: 0,
+      managerCount: 0,
     };
   } catch {
     const defaultProperty = findDefaultPropertyByKey(propertyKey);
@@ -182,6 +208,8 @@ export async function getPropertySummaryByKey(
       employeeCount: 0,
       employeeImportCount: 0,
       lastEmployeeImportAt: null,
+      adminCount: 0,
+      managerCount: 0,
     };
   }
 }

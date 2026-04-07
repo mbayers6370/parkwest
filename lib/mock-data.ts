@@ -1,3 +1,12 @@
+export const mockPropertyAccess: {
+  propertyKey: string;
+  employeeId: string;
+  roleKey: "ADMIN" | "MANAGER";
+}[] = [
+  { propertyKey: "580", employeeId: "10021", roleKey: "ADMIN" },
+  { propertyKey: "580", employeeId: "10077", roleKey: "ADMIN" },
+];
+
 export const mockEmployees = [
   {
     id: "mock-1",
@@ -19,6 +28,20 @@ export const mockEmployees = [
       },
     ],
     aliases: [{ aliasName: "Matt" }, { aliasName: "Matthew Bayers" }],
+  },
+  {
+    id: "mock-4",
+    propertyKey: "580",
+    employeeId: "10077",
+    firstName: "Brett",
+    lastName: "S",
+    displayName: "Brett S",
+    preferredName: "Brett",
+    badgeId: "BW-1077",
+    status: "ACTIVE",
+    employmentType: "FULL_TIME",
+    departmentAssignments: [{ isPrimary: true, department: { departmentName: "Floor" } }],
+    aliases: [{ aliasName: "Brett S" }],
   },
   {
     id: "mock-2",

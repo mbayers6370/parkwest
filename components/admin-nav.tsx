@@ -19,6 +19,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import type { AdminPropertySession } from "@/lib/property-access";
 
 const ICONS = {
   overview: LayoutDashboard,
@@ -62,7 +63,7 @@ const BOTTOM_TABS: NavItem[] = [
   { href: "/admin/audit-log", label: "More", icon: ICONS.auditLog },
 ];
 
-export function AdminNav() {
+export function AdminNav({ session }: { session: AdminPropertySession | null }) {
   const pathname = usePathname() ?? "";
 
   function isActive(href: string, exact?: boolean) {
@@ -83,7 +84,16 @@ export function AdminNav() {
             className="admin-brand-logo"
             priority
           />
-          <p className="admin-brand-kicker">Manager / Admin</p>
+          <div className="admin-brand-scope-row">
+            <p className="admin-brand-kicker">Admin</p>
+            {session ? (
+              <>
+                <span className="admin-brand-scope-value">{session.propertyName}</span>
+              </>
+            ) : (
+              <span className="admin-brand-scope-value">Not selected</span>
+            )}
+          </div>
         </div>
 
         <nav className="admin-sidebar-nav" aria-label="Admin Navigation">
@@ -121,10 +131,6 @@ export function AdminNav() {
 
         <div className="admin-sidebar-footer">
           <p className="admin-nav-section-label">Switch Workspace</p>
-          <Link href="/support" className="admin-workspace-link">
-            <ICONS.support size={14} aria-hidden="true" />
-            Support
-          </Link>
           <Link href="/personal" className="admin-workspace-link">
             <ICONS.personal size={14} aria-hidden="true" />
             Personal

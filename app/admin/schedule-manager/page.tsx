@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight } from "lucide-react";
+import { useAdminProperty } from "@/components/admin-property-provider";
 import { AdminScheduleImport } from "@/components/admin-schedule-import";
 import { getScheduleShiftFamily, isScheduleStatusToken } from "@/lib/schedule-color-system";
 import {
   getPublishedScheduleTitle,
   loadPublishedSchedules,
   PUBLISHED_SCHEDULE_UPDATED_EVENT,
-  savePublishedSchedules,
+  savePublishedSchedulesForProperty,
   type PublishedSchedulePreview,
 } from "@/lib/published-schedule-store";
 
@@ -60,6 +61,7 @@ function renderPublishedScheduleCell(value: string, key: string) {
 }
 
 export default function AdminScheduleManagerPage() {
+  const adminProperty = useAdminProperty();
   const [activeTab, setActiveTab] = useState<ScheduleManagerTab>("import");
   const [publishedSchedules, setPublishedSchedules] = useState<PublishedSchedulePreview[]>([]);
   const [expandedScheduleTitle, setExpandedScheduleTitle] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export default function AdminScheduleManagerPage() {
 
   useEffect(() => {
     const syncSchedules = () => {
-      const loaded = loadPublishedSchedules();
+      const loaded = loadPublishedSchedules(adminProperty?.propertyKey);
       setPublishedSchedules(loaded);
 
       const firstTitle = loaded[0] ? getPublishedScheduleTitle(loaded[0]) : null;
@@ -86,11 +88,13 @@ export default function AdminScheduleManagerPage() {
       );
     };
 
-    syncSchedules();
-    window.addEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncSchedules);
+    if (adminProperty?.propertyKey) {
+      syncSchedules();
+      window.addEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncSchedules);
+    }
 
     return () => window.removeEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncSchedules);
-  }, []);
+  }, [adminProperty?.propertyKey]);
 
   const selectedSchedule =
     publishedSchedules.find((schedule) => getPublishedScheduleTitle(schedule) === selectedScheduleTitle) ??
@@ -175,7 +179,7 @@ export default function AdminScheduleManagerPage() {
       return;
     }
 
-    savePublishedSchedules(publishedSchedules);
+    savePublishedSchedulesForProperty(adminProperty?.propertyKey, publishedSchedules);
     setEditSuccess(`${selectedEmployee.name}'s published schedule was updated.`);
   }
 
@@ -185,7 +189,7 @@ export default function AdminScheduleManagerPage() {
         <p className="admin-page-eyebrow">Manager / Admin</p>
         <h1 className="admin-page-title">Schedule Manager</h1>
         <p className="admin-page-subtitle">
-          Import, review, and manage published weekly schedules
+          Import, review, and manage published weekly schedules for {adminProperty?.propertyName ?? "this property"}.
         </p>
         <nav className="admin-page-tabs" aria-label="Schedule views">
           <button

@@ -2,6 +2,7 @@ import { ScheduleImportStatus, ScheduleImportMatchStatus } from "@prisma/client"
 import { NextResponse } from "next/server";
 import { isMockModeEnabled } from "@/lib/mock-data";
 import { prisma } from "@/lib/prisma";
+import { findDefaultPropertyByKey } from "@/lib/properties";
 import { parseScheduleWorkbook } from "@/lib/schedule-parser";
 
 export async function POST(request: Request) {
@@ -27,21 +28,46 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const preview = parseScheduleWorkbook(file.name, buffer);
+    const propertyKey = String(formData.get("propertyKey") ?? "").trim().toLowerCase();
+    const property = propertyKey ? findDefaultPropertyByKey(propertyKey) : null;
 
     const shouldPersist = formData.get("persist") === "true";
     let importBatchId: string | null = null;
+    const databaseConfigured = Boolean(process.env.DATABASE_URL);
 
-    if (isMockModeEnabled()) {
+    if (isMockModeEnabled() || !databaseConfigured) {
       return NextResponse.json({
         preview,
         importBatchId: shouldPersist ? `mock-import-${Date.now()}` : null,
         mockMode: true,
+        persistenceMessage: databaseConfigured
+          ? "Import persistence is currently running in mock mode."
+          : "Spreadsheet preview is available, but the database is not configured yet.",
       });
     }
 
     if (shouldPersist) {
+      const propertyRecord = property
+        ? await prisma.property.upsert({
+            where: {
+              propertyKey: property.key,
+            },
+            update: {
+              propertyName: property.name,
+            },
+            create: {
+              propertyKey: property.key,
+              propertyName: property.name,
+            },
+            select: {
+              id: true,
+            },
+          })
+        : null;
+
       const batch = await prisma.scheduleImportBatch.create({
         data: {
+          propertyIdFk: propertyRecord?.id,
           originalFilename: file.name,
           fileType: file.type || "application/octet-stream",
           importStatus: ScheduleImportStatus.NEEDS_REVIEW,
@@ -72,14 +98,14 @@ export async function POST(request: Request) {
       importBatchId = batch.id;
     }
 
-    return NextResponse.json({ preview, importBatchId });
+    return NextResponse.json({ preview, importBatchId, mockMode: false });
   } catch (error) {
     console.error("Schedule import preview failed", error);
 
     return NextResponse.json(
       {
         error:
-          "The file could not be parsed or saved. Please check the spreadsheet format and database setup.",
+          "The spreadsheet could not be previewed. Please check the file format and try again.",
       },
       { status: 500 },
     );

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useAdminProperty } from "@/components/admin-property-provider";
 import { CircleAlert, CloudUpload, FileSpreadsheet } from "lucide-react";
 import { getScheduleShiftFamily, isScheduleStatusToken, type ScheduleShiftFamily } from "@/lib/schedule-color-system";
 import {
@@ -64,6 +65,7 @@ function renderSchedulePreviewCell(value: string, key: string, compact = false) 
 }
 
 export function AdminScheduleImport() {
+  const adminProperty = useAdminProperty();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,9 @@ export function AdminScheduleImport() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("persist", "true");
+      if (adminProperty?.propertyKey) {
+        formData.append("propertyKey", adminProperty.propertyKey);
+      }
 
       const response = await fetch("/api/admin/schedule-import", {
         method: "POST",
@@ -103,6 +108,7 @@ export function AdminScheduleImport() {
         importBatchId?: string | null;
         error?: string;
         mockMode?: boolean;
+        persistenceMessage?: string;
       };
 
       if (!response.ok || !data.preview) {
@@ -111,7 +117,9 @@ export function AdminScheduleImport() {
 
       setPreview(data.preview);
       setMockMode(Boolean(data.mockMode));
-      if (data.importBatchId) {
+      if (data.persistenceMessage) {
+        setSuccess(data.persistenceMessage);
+      } else if (data.importBatchId) {
         setSuccess(
           `Saved import batch ${data.importBatchId}.${data.mockMode ? " Ready to publish in mock mode." : ""}`,
         );
@@ -128,7 +136,7 @@ export function AdminScheduleImport() {
       return;
     }
 
-    const publishedSchedules = loadPublishedSchedules();
+    const publishedSchedules = loadPublishedSchedules(adminProperty?.propertyKey);
     const incomingWeek = preview.sheets[0]?.displayName ?? preview.fileName;
     const currentSchedule = publishedSchedules.find(
       (entry) => getPublishedScheduleTitle(entry) === incomingWeek || entry.fileName === preview.fileName,
@@ -151,6 +159,8 @@ export function AdminScheduleImport() {
     }
 
     upsertPublishedSchedule({
+      propertyKey: adminProperty?.propertyKey,
+      propertyName: adminProperty?.propertyName,
       fileName: preview.fileName,
       sheetNames: preview.sheetNames,
       sheets: preview.sheets,
@@ -174,7 +184,7 @@ export function AdminScheduleImport() {
             <div>
               <p className="schedule-import-upload-title">Upload schedule file</p>
               <p className="schedule-import-upload-subtitle">
-                Select the weekly spreadsheet and preview it before publishing.
+                Select the weekly spreadsheet for {adminProperty?.propertyName ?? "this property"} and preview it before publishing.
               </p>
             </div>
           </div>

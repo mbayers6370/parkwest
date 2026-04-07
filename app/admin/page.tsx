@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useAdminProperty } from "@/components/admin-property-provider";
 import {
   CalendarDays,
   CircleAlert,
@@ -95,10 +96,14 @@ const QUICK_ACTIONS = [
 ];
 
 export default function AdminOverviewPage() {
+  const adminProperty = useAdminProperty();
   const [storedAttendanceEvents, setStoredAttendanceEvents] = useState<
     AttendanceEvent[]
   >([]);
   const [storedTimeOffRequests, setStoredTimeOffRequests] = useState<TimeOffRequest[]>([]);
+  const [employees, setEmployees] = useState<
+    { displayName: string; firstName?: string; lastName?: string }[]
+  >([]);
   const [giveawayRequests, setGiveawayRequests] = useState<ShiftGiveawayRequest[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
@@ -155,6 +160,39 @@ export default function AdminOverviewPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadEmployees() {
+      if (!adminProperty?.propertyKey) {
+        setEmployees([]);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          all: "1",
+          propertyKey: adminProperty.propertyKey,
+        });
+        const response = await fetch(`/api/admin/employees?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as {
+          employees?: { displayName: string; firstName?: string; lastName?: string }[];
+        };
+        setEmployees(data.employees ?? []);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setEmployees([]);
+        }
+      }
+    }
+
+    loadEmployees();
+
+    return () => controller.abort();
+  }, [adminProperty?.propertyKey]);
+
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -164,10 +202,12 @@ export default function AdminOverviewPage() {
 
   const attendanceWindow = useMemo(() => {
     return getLast24HourAttendanceEvents(
-      getAllAttendanceEvents(storedAttendanceEvents),
+      getAllAttendanceEvents(storedAttendanceEvents).filter((event) =>
+        employeeBelongsToProperty(event.employeeName, employees),
+      ),
       new Date().toISOString(),
     );
-  }, [storedAttendanceEvents]);
+  }, [employees, storedAttendanceEvents]);
 
   const attendanceSummary = getAttendanceSummary(attendanceWindow);
   const effectiveScheduleEntries = useMemo(
@@ -177,9 +217,11 @@ export default function AdminOverviewPage() {
   const pendingTimeOffRequests = useMemo(
     () =>
       getAllTimeOffRequests(storedTimeOffRequests).filter(
-        (request) => request.status === "pending",
+        (request) =>
+          request.status === "pending" &&
+          requestBelongsToProperty(request, employees, adminProperty?.propertyKey),
       ),
-    [storedTimeOffRequests],
+    [adminProperty?.propertyKey, employees, storedTimeOffRequests],
   );
   const latestPendingTimeOffRequests = useMemo(
     () =>
@@ -197,6 +239,7 @@ export default function AdminOverviewPage() {
     const activeNames = new Set(
       effectiveScheduleEntries
         .filter((entry) => entry.status === "scheduled")
+        .filter((entry) => employeeBelongsToProperty(entry.employeeName, employees))
         .filter((entry) => {
           const range = parseShiftRange(entry.shiftDate, entry.shiftTime);
 
@@ -210,7 +253,7 @@ export default function AdminOverviewPage() {
     );
 
     return activeNames.size;
-  }, [effectiveScheduleEntries]);
+  }, [effectiveScheduleEntries, employees]);
   function updateGiveawayRequest(requestId: string, status: "approved" | "denied") {
     const request = giveawayRequests.find((entry) => entry.id === requestId);
 
@@ -244,7 +287,9 @@ export default function AdminOverviewPage() {
       <header className="admin-page-header">
         <p className="admin-page-eyebrow">Manager / Admin</p>
         <h1 className="admin-page-title">Overview</h1>
-        <p className="admin-page-subtitle">{today}</p>
+        <p className="admin-page-subtitle">
+          {today} · {adminProperty?.propertyName ?? "This property"}
+        </p>
       </header>
 
       <div className="admin-content">
@@ -411,4 +456,40 @@ export default function AdminOverviewPage() {
       </div>
     </>
   );
+}
+
+function employeeBelongsToProperty(
+  employeeName: string,
+  employees: { displayName: string; firstName?: string; lastName?: string }[],
+) {
+  const normalizedEmployeeName = employeeName.trim().toLowerCase();
+
+  return employees.some((employee) => {
+    const names = [
+      employee.displayName,
+      employee.firstName && employee.lastName
+        ? `${employee.firstName} ${employee.lastName}`
+        : null,
+    ]
+      .filter(Boolean)
+      .map((value) => value?.trim().toLowerCase());
+
+    return names.includes(normalizedEmployeeName);
+  });
+}
+
+function requestBelongsToProperty(
+  request: TimeOffRequest,
+  employees: { displayName: string; firstName?: string; lastName?: string }[],
+  propertyKey?: string,
+) {
+  if (!propertyKey) {
+    return false;
+  }
+
+  if (request.location.trim().toLowerCase() === propertyKey.trim().toLowerCase()) {
+    return true;
+  }
+
+  return employeeBelongsToProperty(request.fullName, employees);
 }

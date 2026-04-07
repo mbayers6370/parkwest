@@ -3,6 +3,8 @@ const PUBLISHED_SCHEDULE_STORAGE_KEY = "parkwest-published-schedules";
 export const PUBLISHED_SCHEDULE_UPDATED_EVENT = "parkwest-published-schedule-updated";
 
 export type PublishedSchedulePreview = {
+  propertyKey?: string;
+  propertyName?: string;
   fileName: string;
   sheetNames: string[];
   sheets: {
@@ -27,7 +29,7 @@ export function getPublishedScheduleTitle(preview: PublishedSchedulePreview) {
   return preview.sheets[0]?.displayName ?? preview.fileName;
 }
 
-export function loadPublishedSchedules() {
+export function loadPublishedSchedules(propertyKey?: string) {
   if (typeof window === "undefined") {
     return [] as PublishedSchedulePreview[];
   }
@@ -42,10 +44,19 @@ export function loadPublishedSchedules() {
     const parsed = JSON.parse(raw) as PublishedSchedulePreview[] | PublishedSchedulePreview;
 
     if (Array.isArray(parsed)) {
-      return parsed;
+      return propertyKey
+        ? parsed.filter(
+            (entry) => (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase(),
+          )
+        : parsed;
     }
 
-    return parsed ? [parsed] : [];
+    const list = parsed ? [parsed] : [];
+    return propertyKey
+      ? list.filter(
+          (entry) => (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase(),
+        )
+      : list;
   } catch {
     return [] as PublishedSchedulePreview[];
   }
@@ -60,11 +71,32 @@ export function savePublishedSchedules(previews: PublishedSchedulePreview[]) {
   window.dispatchEvent(new Event(PUBLISHED_SCHEDULE_UPDATED_EVENT));
 }
 
+export function savePublishedSchedulesForProperty(
+  propertyKey: string | undefined,
+  previews: PublishedSchedulePreview[],
+) {
+  if (!propertyKey) {
+    savePublishedSchedules(previews);
+    return;
+  }
+
+  const existing = loadPublishedSchedules();
+  const otherProperties = existing.filter(
+    (entry) => (entry.propertyKey ?? "").toLowerCase() !== propertyKey.toLowerCase(),
+  );
+
+  savePublishedSchedules([...otherProperties, ...previews]);
+}
+
 export function upsertPublishedSchedule(preview: PublishedSchedulePreview) {
   const existing = loadPublishedSchedules();
   const title = getPublishedScheduleTitle(preview);
   const next = [...existing];
-  const index = next.findIndex((entry) => getPublishedScheduleTitle(entry) === title);
+  const index = next.findIndex(
+    (entry) =>
+      getPublishedScheduleTitle(entry) === title &&
+      (entry.propertyKey ?? "") === (preview.propertyKey ?? ""),
+  );
 
   if (index >= 0) {
     next[index] = preview;

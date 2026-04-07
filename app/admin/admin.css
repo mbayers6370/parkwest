@@ -37,13 +37,30 @@
 }
 
 .admin-brand-kicker {
-  margin: 0 0 3px;
+  margin: 0;
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--gold) 75%, transparent);
   text-align: center;
+}
+
+.admin-brand-scope-row {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.admin-brand-scope-value {
+  margin: 0;
+  color: color-mix(in srgb, var(--gold) 75%, transparent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
 .admin-brand-name {
@@ -127,6 +144,10 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+}
+
+.admin-empty-scope {
+  padding: 28px;
 }
 
 .admin-workspace-link {

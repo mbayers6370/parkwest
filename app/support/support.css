@@ -1,3 +1,10 @@
+.support-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
 .support-property-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -20,4 +27,64 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.support-access-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.support-access-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  gap: 16px;
+}
+
+.support-access-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.support-access-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 92px;
+}
+
+.support-access-employee {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.support-access-employee.active {
+  border-color: color-mix(in srgb, var(--gold) 44%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent);
+}
+
+.support-access-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.support-access-entry-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .support-access-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .support-access-entry {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

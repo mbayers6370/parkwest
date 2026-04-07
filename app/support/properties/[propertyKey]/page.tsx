@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminEmployeeManager } from "@/components/admin-employee-manager";
+import { SupportPropertyAccessManager } from "@/components/support-property-access-manager";
 import { SupportEmployeeImport } from "@/components/support-employee-import";
 import { getPropertySummaryByKey } from "@/lib/property-service";
 
@@ -59,10 +60,23 @@ export default async function SupportPropertyDetailPage({
               <p className="mini-label">Last Import</p>
               <p className="mini-title">{lastImportLabel}</p>
             </div>
+            <div className="mini-card">
+              <p className="mini-label">Admins</p>
+              <p className="mini-title">{property.adminCount}</p>
+            </div>
+            <div className="mini-card">
+              <p className="mini-label">Managers</p>
+              <p className="mini-title">{property.managerCount}</p>
+            </div>
           </div>
         </section>
 
         <SupportEmployeeImport
+          propertyKey={property.propertyKey}
+          propertyName={property.propertyName}
+        />
+
+        <SupportPropertyAccessManager
           propertyKey={property.propertyKey}
           propertyName={property.propertyName}
         />

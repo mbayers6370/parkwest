@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAdminProperty } from "@/components/admin-property-provider";
 import {
   getAllTimeOffRequests,
   TIME_OFF_REASON_LABELS,
@@ -43,6 +44,7 @@ type EmployeeDirectoryResponse = {
 };
 
 export default function AdminRequestsPage() {
+  const adminProperty = useAdminProperty();
   const [storedRequests, setStoredRequests] = useState<TimeOffRequest[]>([]);
   const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<TimeOffStatus>("pending");
@@ -68,7 +70,13 @@ export default function AdminRequestsPage() {
 
     async function loadEmployees() {
       try {
-        const response = await fetch("/api/admin/employees?all=1", {
+        const params = new URLSearchParams({ all: "1" });
+
+        if (adminProperty?.propertyKey) {
+          params.set("propertyKey", adminProperty.propertyKey);
+        }
+
+        const response = await fetch(`/api/admin/employees?${params.toString()}`, {
           signal: controller.signal,
         });
         const data = (await response.json()) as EmployeeDirectoryResponse;
@@ -87,10 +95,12 @@ export default function AdminRequestsPage() {
       }
     }
 
-    loadEmployees();
+    if (adminProperty?.propertyKey) {
+      loadEmployees();
+    }
 
     return () => controller.abort();
-  }, []);
+  }, [adminProperty?.propertyKey]);
 
   const allRequests = useMemo(
     () => getAllTimeOffRequests(storedRequests),
@@ -98,11 +108,15 @@ export default function AdminRequestsPage() {
   );
   const requestsWithDepartment = useMemo(
     () =>
-      allRequests.map((request) => ({
-        ...request,
-        departmentLabel: getRequestDepartmentLabel(request, employees),
-      })),
-    [allRequests, employees],
+      allRequests
+        .filter((request) =>
+          requestBelongsToProperty(request, employees, adminProperty?.propertyKey),
+        )
+        .map((request) => ({
+          ...request,
+          departmentLabel: getRequestDepartmentLabel(request, employees),
+        })),
+    [adminProperty?.propertyKey, allRequests, employees],
   );
   const filteredRequests = useMemo(
     () =>
@@ -149,7 +163,7 @@ export default function AdminRequestsPage() {
         <p className="admin-page-eyebrow">Manager / Admin</p>
         <h1 className="admin-page-title">Requests</h1>
         <p className="admin-page-subtitle">
-          Review employee time-off requests grouped by Saturday-start weeks.
+          Review employee time-off requests for {adminProperty?.propertyName ?? "this property"}, grouped by Saturday-start weeks.
         </p>
         <nav className="admin-page-tabs" aria-label="Request filters">
           <button
@@ -302,6 +316,37 @@ export default function AdminRequestsPage() {
       </div>
     </>
   );
+}
+
+function requestBelongsToProperty(
+  request: TimeOffRequest,
+  employees: EmployeeDirectoryEntry[],
+  propertyKey?: string,
+) {
+  if (!propertyKey) {
+    return false;
+  }
+
+  const normalizedPropertyKey = propertyKey.trim().toLowerCase();
+
+  if (request.location.trim().toLowerCase() === normalizedPropertyKey) {
+    return true;
+  }
+
+  const requestName = request.fullName.trim().toLowerCase();
+
+  return employees.some((employee) => {
+    const exactNames = [
+      employee.displayName,
+      employee.firstName && employee.lastName
+        ? `${employee.firstName} ${employee.lastName}`
+        : null,
+    ]
+      .filter(Boolean)
+      .map((value) => value?.trim().toLowerCase());
+
+    return exactNames.includes(requestName);
+  });
 }
 
 function getRequestDepartmentLabel(

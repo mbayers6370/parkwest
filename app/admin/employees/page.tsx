@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAdminProperty } from "@/components/admin-property-provider";
 import {
   AdminEmployeeDirectory,
   AdminEmployeeManager,
@@ -9,6 +10,7 @@ import {
 type EmployeeAdminTab = "manage" | "directory";
 
 export default function AdminEmployeesPage() {
+  const adminProperty = useAdminProperty();
   const [activeTab, setActiveTab] = useState<EmployeeAdminTab>("manage");
 
   return (
@@ -16,7 +18,9 @@ export default function AdminEmployeesPage() {
       <header className="admin-page-header">
         <p className="admin-page-eyebrow">Manager / Admin</p>
         <h1 className="admin-page-title">Employees</h1>
-        <p className="admin-page-subtitle">Create, search, and manage employee records</p>
+        <p className="admin-page-subtitle">
+          Create, search, and manage employee records for {adminProperty?.propertyName ?? "this property"}.
+        </p>
         <nav className="admin-page-tabs" aria-label="Employee views">
           <button
             type="button"
@@ -36,7 +40,17 @@ export default function AdminEmployeesPage() {
       </header>
 
       <div className="admin-content">
-        {activeTab === "manage" ? <AdminEmployeeManager /> : <AdminEmployeeDirectory />}
+        {activeTab === "manage" ? (
+          <AdminEmployeeManager
+            propertyKey={adminProperty?.propertyKey}
+            propertyName={adminProperty?.propertyName}
+          />
+        ) : (
+          <AdminEmployeeDirectory
+            propertyKey={adminProperty?.propertyKey}
+            propertyName={adminProperty?.propertyName}
+          />
+        )}
       </div>
     </>
   );

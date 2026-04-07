@@ -3,6 +3,18 @@ import { getPropertySummaries } from "@/lib/property-service";
 
 export default async function SupportOverviewPage() {
   const properties = await getPropertySummaries();
+  const activeProperties = properties.filter((property) => property.active).length;
+  const configuredProperties = properties.filter(
+    (property) => property.employeeImportCount > 0,
+  ).length;
+  const totalEmployees = properties.reduce(
+    (sum, property) => sum + property.employeeCount,
+    0,
+  );
+  const totalElevatedUsers = properties.reduce(
+    (sum, property) => sum + property.adminCount + property.managerCount,
+    0,
+  );
 
   return (
     <>
@@ -15,6 +27,25 @@ export default async function SupportOverviewPage() {
       </header>
 
       <div className="admin-content">
+        <div className="support-overview-stats">
+          <div className="mini-card">
+            <p className="mini-label">Active Properties</p>
+            <p className="mini-title">{activeProperties}</p>
+          </div>
+          <div className="mini-card">
+            <p className="mini-label">Configured Properties</p>
+            <p className="mini-title">{configuredProperties}</p>
+          </div>
+          <div className="mini-card">
+            <p className="mini-label">Employee Records</p>
+            <p className="mini-title">{totalEmployees}</p>
+          </div>
+          <div className="mini-card">
+            <p className="mini-label">Admins + Managers</p>
+            <p className="mini-title">{totalElevatedUsers}</p>
+          </div>
+        </div>
+
         <div className="support-property-grid">
           {properties.map((property) => (
             <article key={property.propertyKey} className="result-card support-property-card">
@@ -37,6 +68,14 @@ export default async function SupportOverviewPage() {
                   <p className="mini-label">Employee Imports</p>
                   <p className="mini-title">{property.employeeImportCount}</p>
                 </div>
+                <div className="mini-card">
+                  <p className="mini-label">Admins</p>
+                  <p className="mini-title">{property.adminCount}</p>
+                </div>
+                <div className="mini-card">
+                  <p className="mini-label">Managers</p>
+                  <p className="mini-title">{property.managerCount}</p>
+                </div>
               </div>
 
               <p className="mini-copy">
@@ -47,6 +86,11 @@ export default async function SupportOverviewPage() {
                       year: "numeric",
                     }).format(new Date(property.lastEmployeeImportAt))}.`
                   : "No employee imports have been recorded yet."}
+              </p>
+              <p className="mini-copy">
+                {property.employeeImportCount > 0
+                  ? "Property is configured and ready for scoped admin access."
+                  : "Property has not been onboarded yet and still needs employee data."}
               </p>
 
               <div className="support-link-row">

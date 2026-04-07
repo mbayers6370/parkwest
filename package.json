@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
-    "prisma:migrate:dev": "prisma migrate dev"
+    "prisma:migrate:dev": "prisma migrate dev",
+    "backfill:employee-properties": "node scripts/backfill-employee-properties.mjs",
+    "verify:employee-properties": "node scripts/verify-employee-properties.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
