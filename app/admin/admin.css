@@ -1028,6 +1028,13 @@ button.admin-page-tab {
 }
 
 .published-schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.published-schedule-toggle {
+  flex: 1;
   width: 100%;
   border: none;
   background: transparent;
@@ -1039,6 +1046,26 @@ button.admin-page-tab {
   text-align: left;
   cursor: pointer;
   color: var(--foreground);
+}
+
+.published-schedule-delete {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 14%, var(--ivory-100));
+  background: transparent;
+  color: var(--foreground-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.published-schedule-delete:hover {
+  border-color: color-mix(in srgb, var(--danger) 26%, var(--border));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
 }
 
 .published-schedule-expanded {

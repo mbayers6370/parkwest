@@ -11,7 +11,6 @@ const MOCK_PROFILE = {
   employeeId: "10021",
   department: "Dealer",
   employmentType: "Full-time",
-  badgeId: "BW-1021",
   property: "Parkwest 580",
 };
 
@@ -50,12 +49,6 @@ export default function PersonalAccountPage() {
                   <p className="data-row-title">Employee ID</p>
                 </div>
                 <span className={styles.dataValue}>{MOCK_PROFILE.employeeId}</span>
-              </div>
-              <div className="data-row">
-                <div className="data-row-main">
-                  <p className="data-row-title">Badge</p>
-                </div>
-                <span className={styles.dataValue}>{MOCK_PROFILE.badgeId}</span>
               </div>
               <div className="data-row">
                 <div className="data-row-main">

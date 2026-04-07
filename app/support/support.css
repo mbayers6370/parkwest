@@ -5,6 +5,16 @@
   margin-bottom: 18px;
 }
 
+.support-property-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.support-property-section {
+  margin: 0;
+}
+
 .support-property-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

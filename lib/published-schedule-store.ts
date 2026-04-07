@@ -106,3 +106,23 @@ export function upsertPublishedSchedule(preview: PublishedSchedulePreview) {
 
   savePublishedSchedules(next);
 }
+
+export function removePublishedScheduleForProperty(
+  propertyKey: string | undefined,
+  scheduleTitle: string,
+) {
+  const existing = loadPublishedSchedules();
+  const next = existing.filter((entry) => {
+    const matchesProperty = propertyKey
+      ? (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase()
+      : true;
+
+    if (!matchesProperty) {
+      return true;
+    }
+
+    return getPublishedScheduleTitle(entry) !== scheduleTitle;
+  });
+
+  savePublishedSchedules(next);
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import { AdminScheduleImport } from "@/components/admin-schedule-import";
 import { getScheduleShiftFamily, isScheduleStatusToken } from "@/lib/schedule-color-system";
@@ -9,6 +9,7 @@ import {
   getPublishedScheduleTitle,
   loadPublishedSchedules,
   PUBLISHED_SCHEDULE_UPDATED_EVENT,
+  removePublishedScheduleForProperty,
   savePublishedSchedulesForProperty,
   type PublishedSchedulePreview,
 } from "@/lib/published-schedule-store";
@@ -69,6 +70,7 @@ export default function AdminScheduleManagerPage() {
   const [selectedEmployeeKey, setSelectedEmployeeKey] = useState<string | null>(null);
   const [selectedScheduleTitle, setSelectedScheduleTitle] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
+  const [deleteTargetTitle, setDeleteTargetTitle] = useState<string | null>(null);
 
   useEffect(() => {
     const syncSchedules = () => {
@@ -183,6 +185,25 @@ export default function AdminScheduleManagerPage() {
     setEditSuccess(`${selectedEmployee.name}'s published schedule was updated.`);
   }
 
+  function handleDeletePublishedSchedule() {
+    if (!deleteTargetTitle) {
+      return;
+    }
+
+    removePublishedScheduleForProperty(adminProperty?.propertyKey, deleteTargetTitle);
+
+    if (expandedScheduleTitle === deleteTargetTitle) {
+      setExpandedScheduleTitle(null);
+    }
+
+    if (selectedScheduleTitle === deleteTargetTitle) {
+      setSelectedScheduleTitle(null);
+      setSelectedEmployeeKey(null);
+    }
+
+    setDeleteTargetTitle(null);
+  }
+
   return (
     <>
       <header className="admin-page-header">
@@ -228,17 +249,26 @@ export default function AdminScheduleManagerPage() {
 
                 return (
                   <div key={title} className="result-card">
-                    <button
-                      type="button"
-                      className="published-schedule-row"
-                      onClick={() => setExpandedScheduleTitle(isExpanded ? null : title)}
-                    >
-                      <div>
-                        <p className="result-title">{title}</p>
-                        <p className="result-subtitle">{schedule.sheets.length} page{schedule.sheets.length === 1 ? "" : "s"}</p>
-                      </div>
-                      {isExpanded ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
-                    </button>
+                    <div className="published-schedule-row">
+                      <button
+                        type="button"
+                        className="published-schedule-toggle"
+                        onClick={() => setExpandedScheduleTitle(isExpanded ? null : title)}
+                      >
+                        <div>
+                          <p className="result-title">{title}</p>
+                        </div>
+                        {isExpanded ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
+                      </button>
+                      <button
+                        type="button"
+                        className="published-schedule-delete"
+                        onClick={() => setDeleteTargetTitle(title)}
+                        aria-label={`Delete ${title}`}
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </button>
+                    </div>
 
                     {isExpanded ? (
                       <div className="stack published-schedule-expanded">
@@ -450,6 +480,43 @@ export default function AdminScheduleManagerPage() {
           </div>
         )}
       </div>
+      {deleteTargetTitle ? (
+        <div
+          className="admin-confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-published-schedule-title"
+        >
+          <div className="admin-confirm-modal">
+            <div className="admin-confirm-header">
+              <div>
+                <p className="admin-confirm-title" id="delete-published-schedule-title">
+                  Remove published schedule?
+                </p>
+                <p className="admin-confirm-copy">
+                  {deleteTargetTitle} will be removed from Published Schedule for {adminProperty?.propertyName ?? "this property"}. Please confirm that you want to continue.
+                </p>
+              </div>
+            </div>
+            <div className="admin-confirm-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setDeleteTargetTitle(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="secondary-button danger"
+                onClick={handleDeletePublishedSchedule}
+              >
+                Delete Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

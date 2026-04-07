@@ -34,8 +34,8 @@ export default async function SupportPropertyDetailPage({
         </p>
       </header>
 
-      <div className="admin-content">
-        <section className="result-card">
+      <div className="admin-content support-property-detail">
+        <section className="result-card support-property-section">
           <div className="result-card-header">
             <div>
               <p className="mini-label">Property Health</p>
@@ -71,20 +71,26 @@ export default async function SupportPropertyDetailPage({
           </div>
         </section>
 
-        <SupportEmployeeImport
-          propertyKey={property.propertyKey}
-          propertyName={property.propertyName}
-        />
+        <div className="support-property-section">
+          <SupportEmployeeImport
+            propertyKey={property.propertyKey}
+            propertyName={property.propertyName}
+          />
+        </div>
 
-        <SupportPropertyAccessManager
-          propertyKey={property.propertyKey}
-          propertyName={property.propertyName}
-        />
+        <div className="support-property-section">
+          <SupportPropertyAccessManager
+            propertyKey={property.propertyKey}
+            propertyName={property.propertyName}
+          />
+        </div>
 
-        <AdminEmployeeManager
-          propertyKey={property.propertyKey}
-          propertyName={property.propertyName}
-        />
+        <div className="support-property-section">
+          <AdminEmployeeManager
+            propertyKey={property.propertyKey}
+            propertyName={property.propertyName}
+          />
+        </div>
       </div>
     </>
   );
