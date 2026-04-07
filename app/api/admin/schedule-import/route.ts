@@ -47,30 +47,15 @@ export async function POST(request: Request) {
           importStatus: ScheduleImportStatus.NEEDS_REVIEW,
           weekStart: new Date(),
           weekEnd: new Date(),
-          totalRows: preview.rowCount,
+          totalRows: preview.totalRows,
           matchedRows: 0,
-          unmatchedRows: preview.rowCount,
+          unmatchedRows: preview.totalRows,
           ambiguousRows: 0,
           rows: {
-            create: preview.rows.map((row, index) => ({
-              sourceRowNumber: index + 1,
-              sourceEmployeeName:
-                row.Name ??
-                row.name ??
-                row.Employee ??
-                row.employee ??
-                row.EmployeeName ??
-                row.employeeName ??
-                "",
-              normalizedSourceEmployeeName: (
-                row.Name ??
-                row.name ??
-                row.Employee ??
-                row.employee ??
-                row.EmployeeName ??
-                row.employeeName ??
-                ""
-              )
+            create: preview.rows.map((row) => ({
+              sourceRowNumber: row.rowNumber,
+              sourceEmployeeName: row.cells[0] ?? "",
+              normalizedSourceEmployeeName: (row.cells[0] ?? "")
                 .toLowerCase()
                 .replace(/[^\p{L}\p{N}]+/gu, " ")
                 .trim(),

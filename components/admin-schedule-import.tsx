@@ -2,15 +2,66 @@
 
 import { FormEvent, useState } from "react";
 import { CircleAlert, CloudUpload, FileSpreadsheet } from "lucide-react";
+import { getScheduleShiftFamily, isScheduleStatusToken, type ScheduleShiftFamily } from "@/lib/schedule-color-system";
+import {
+  getPublishedScheduleTitle,
+  loadPublishedSchedules,
+  upsertPublishedSchedule,
+} from "@/lib/published-schedule-store";
 
 type SchedulePreview = {
   fileName: string;
   sheetNames: string[];
   selectedSheet: string;
   rowCount: number;
+  totalRows: number;
   headers: string[];
   previewRows: Record<string, string>[];
+  sheets: {
+    sheetName: string;
+    displayName: string;
+    dayHeaders: string[];
+    dateHeaders: string[];
+    scheduleRows: {
+      name: string;
+      shifts: string[];
+    }[];
+    detectedShifts: string[];
+  }[];
+  shiftFamilies: ScheduleShiftFamily[];
 };
+
+function renderSchedulePreviewCell(value: string, key: string, compact = false) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return <td key={key} />;
+  }
+
+  const family = getScheduleShiftFamily(trimmedValue);
+
+  if (family) {
+    return (
+      <td key={key}>
+        <span
+          className={`schedule-import-shift-card schedule-import-shift-card-${family.tone}${compact ? " schedule-import-shift-card-compact" : ""}`}
+        >
+          {trimmedValue}
+        </span>
+      </td>
+    );
+  }
+
+  if (isScheduleStatusToken(trimmedValue)) {
+    return (
+      <td key={key}>
+        <span className="schedule-import-status-chip">{trimmedValue}</span>
+      </td>
+    );
+  }
+
+  return <td key={key}>{trimmedValue}</td>;
+}
 
 export function AdminScheduleImport() {
   const [file, setFile] = useState<File | null>(null);
@@ -19,6 +70,10 @@ export function AdminScheduleImport() {
   const [success, setSuccess] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(false);
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
+  const [publishConflict, setPublishConflict] = useState<{
+    incomingWeek: string;
+    currentWeek: string;
+  } | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,7 +113,7 @@ export function AdminScheduleImport() {
       setMockMode(Boolean(data.mockMode));
       if (data.importBatchId) {
         setSuccess(
-          `Saved import batch ${data.importBatchId}.${data.mockMode ? " Mock mode is on, so this is only a simulated save." : ""}`,
+          `Saved import batch ${data.importBatchId}.${data.mockMode ? " Ready to publish in mock mode." : ""}`,
         );
       }
     } catch (submitError) {
@@ -68,8 +123,48 @@ export function AdminScheduleImport() {
     }
   }
 
+  function handlePublish() {
+    if (!preview) {
+      return;
+    }
+
+    const publishedSchedules = loadPublishedSchedules();
+    const incomingWeek = preview.sheets[0]?.displayName ?? preview.fileName;
+    const currentSchedule = publishedSchedules.find(
+      (entry) => getPublishedScheduleTitle(entry) === incomingWeek || entry.fileName === preview.fileName,
+    );
+
+    if (currentSchedule) {
+      setPublishConflict({
+        incomingWeek,
+        currentWeek: getPublishedScheduleTitle(currentSchedule),
+      });
+      return;
+    }
+
+    publishSchedule();
+  }
+
+  function publishSchedule() {
+    if (!preview) {
+      return;
+    }
+
+    upsertPublishedSchedule({
+      fileName: preview.fileName,
+      sheetNames: preview.sheetNames,
+      sheets: preview.sheets,
+      shiftFamilies: preview.shiftFamilies,
+    });
+    setPublishConflict(null);
+    setSuccess(
+      `${preview.sheets[0]?.displayName ?? preview.fileName} was published successfully.${mockMode ? " Mock mode is on." : ""}`,
+    );
+  }
+
   return (
-    <div className="stack">
+    <>
+      <div className="stack">
       <form className="stack" onSubmit={handleSubmit}>
         <section className="schedule-import-upload-card">
           <div className="schedule-import-upload-head">
@@ -160,73 +255,126 @@ export function AdminScheduleImport() {
           </div>
         </div>
       ) : null}
-      {success ? <p className="status-text success">{success}</p> : null}
+      {success ? (
+        <div className="notice-card ok">
+          <div>
+            <p className="notice-title">Publish successful</p>
+            <p className="notice-body">{success}</p>
+          </div>
+        </div>
+      ) : null}
 
-      {preview ? (
-        <section className="stack">
-          <div className="result-card">
+        {preview ? (
+          <section className="stack">
+          <div className="result-card schedule-import-summary-card">
             <div className="result-card-header">
               <div>
                 <p className="result-title">{preview.fileName}</p>
                 <p className="result-subtitle">
-                  {preview.rowCount} rows in {preview.selectedSheet}
+                  {preview.sheets.length} imported page
+                  {preview.sheetNames.length === 1 ? "" : "s"}
                 </p>
               </div>
-              <span className="badge success">Parsed</span>
-            </div>
-
-            <div className="badge-row">
-              {preview.sheetNames.map((sheetName) => (
-                <span
-                  key={sheetName}
-                  className={`badge ${sheetName === preview.selectedSheet ? "gold" : "warning"}`}
-                >
-                  {sheetName}
-                </span>
-              ))}
+              <div className="schedule-import-top-actions">
+                <button type="button" className="primary-button" onClick={handlePublish}>
+                  Publish Schedule
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="result-card">
-            <p className="mini-label">Detected Columns</p>
-            <div className="badge-row">
-              {preview.headers.length > 0 ? (
-                preview.headers.map((header) => (
-                  <span key={header} className="badge warning">
-                    {header}
-                  </span>
+            <p className="mini-label">Shift Families</p>
+            <div className="schedule-import-shift-legend">
+              {preview.shiftFamilies.length > 0 ? (
+                preview.shiftFamilies.map((family) => (
+                  <div
+                    key={family.familyLabel}
+                    className={`schedule-import-shift-card schedule-import-shift-card-${family.tone}`}
+                  >
+                    <span>{family.familyLabel}</span>
+                    <strong>{family.displayLabel}</strong>
+                  </div>
                 ))
               ) : (
-                <span className="badge warning">No headers detected</span>
+                <span className="badge warning">No shift families detected</span>
               )}
             </div>
           </div>
 
-          <div className="result-card">
-            <p className="mini-label">Preview Rows</p>
-            <div className="preview-table-wrapper">
-              <table className="preview-table">
-                <thead>
-                  <tr>
-                    {preview.headers.map((header) => (
-                      <th key={header}>{header}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.previewRows.map((row, index) => (
-                    <tr key={`preview-row-${index + 1}`}>
-                      {preview.headers.map((header) => (
-                        <td key={`${header}-${index + 1}`}>{row[header] ?? ""}</td>
+            {preview.sheets.map((sheet) => (
+              <div key={sheet.sheetName} className="result-card schedule-import-sheet-card">
+              <div className="result-card-header">
+                <div>
+                  <p className="result-title">{sheet.displayName}</p>
+                </div>
+              </div>
+
+              <div className="preview-table-wrapper">
+                <table className="preview-table schedule-import-preview-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      {sheet.dayHeaders.map((header) => (
+                        <th key={`${sheet.sheetName}-${header}`}>{header}</th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <tr>
+                      <th />
+                      {sheet.dateHeaders.map((header) => (
+                        <th key={`${sheet.sheetName}-${header}`}>{header}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sheet.scheduleRows.map((row, rowIndex) => (
+                      <tr key={`${sheet.sheetName}-preview-row-${rowIndex + 1}`}>
+                        <td>{row.name}</td>
+                        {row.shifts.map((cell, cellIndex) =>
+                          renderSchedulePreviewCell(
+                            cell,
+                            `${sheet.sheetName}-${rowIndex + 1}-${cellIndex + 1}`,
+                            true,
+                          ),
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </div>
+            ))}
+          </section>
+        ) : null}
+      </div>
+      {publishConflict ? (
+        <div className="admin-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="publish-overwrite-title">
+          <div className="admin-confirm-modal">
+            <div className="admin-confirm-header">
+              <div>
+                <p className="admin-confirm-title" id="publish-overwrite-title">
+                  This schedule has already been published
+                </p>
+                <p className="admin-confirm-copy">
+                  {publishConflict.currentWeek} is already in Published Schedule. Would you like to replace it with {publishConflict.incomingWeek}?
+                </p>
+              </div>
+            </div>
+            <div className="admin-confirm-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setPublishConflict(null)}
+              >
+                Cancel
+              </button>
+              <button type="button" className="primary-button" onClick={publishSchedule}>
+                Replace Schedule
+              </button>
             </div>
           </div>
-        </section>
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }
