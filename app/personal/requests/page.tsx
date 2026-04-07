@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Square, SquareCheckBig } from "lucide-react";
+import { Check, Square, SquareCheckBig, X } from "lucide-react";
 import {
   getAllTimeOffRequests,
+  getReviewedDateBreakdown,
   TIME_OFF_REASON_LABELS,
   TIME_OFF_STATUS_LABELS,
   TIME_OFF_WINDOW_LABELS,
@@ -23,6 +24,7 @@ const STATUS_STYLE = {
   pending: "warning",
   approved: "success",
   not_approved: "danger",
+  partial_approved: "gold",
 } as const;
 
 const CURRENT_EMPLOYEE = {
@@ -33,11 +35,11 @@ const CURRENT_EMPLOYEE = {
 };
 
 export default function PersonalRequestsPage() {
-  const [fullName, setFullName] = useState(CURRENT_EMPLOYEE.fullName);
-  const [supervisor, setSupervisor] = useState(CURRENT_EMPLOYEE.supervisor);
+  const [fullName, setFullName] = useState("");
+  const [supervisor, setSupervisor] = useState("");
   const [dateSubmitted, setDateSubmitted] = useState(getTodayIsoDate());
-  const [shift, setShift] = useState(CURRENT_EMPLOYEE.shift);
-  const [location, setLocation] = useState(CURRENT_EMPLOYEE.location);
+  const [shift, setShift] = useState("");
+  const [location, setLocation] = useState("");
   const [hoursAbsent, setHoursAbsent] = useState("");
   const [absenceStartDate, setAbsenceStartDate] = useState("");
   const [absenceEndDate, setAbsenceEndDate] = useState("");
@@ -89,7 +91,6 @@ export default function PersonalRequestsPage() {
     setStoredRequests(nextStoredRequests);
     saveStoredTimeOffRequests(nextStoredRequests);
     setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 4000);
     setHoursAbsent("");
     setAbsenceStartDate("");
     setAbsenceEndDate("");
@@ -121,17 +122,7 @@ export default function PersonalRequestsPage() {
               </div>
             ) : (
               employeeRequests.map((request) => (
-                <div key={request.id} className={styles.requestRow}>
-                  <div className={styles.requestInfo}>
-                    <p className={styles.requestInfoTitle}>{request.datesAbsent}</p>
-                    <p className={styles.requestInfoDates}>
-                      {TIME_OFF_REASON_LABELS[request.reason]} · {request.hoursAbsent} hours
-                    </p>
-                  </div>
-                  <span className={`badge ${STATUS_STYLE[request.status]}`}>
-                    {TIME_OFF_STATUS_LABELS[request.status]}
-                  </span>
-                </div>
+                <RequestStatusRow key={request.id} request={request} />
               ))
             )}
           </div>
@@ -145,16 +136,6 @@ export default function PersonalRequestsPage() {
           </div>
 
           <div className={`${shared.pCardBody} ${styles.requestsPanelBody}`}>
-            {submitted && (
-              <div className="notice-card ok" style={{ marginBottom: 16 }}>
-                <Check size={15} aria-hidden="true" />
-                <div>
-                  <p className="notice-title">Request submitted</p>
-                  <p className="notice-body">Your manager will receive this.</p>
-                </div>
-              </div>
-            )}
-
             <form className={`${shared.pForm} ${styles.requestPaperForm}`} onSubmit={handleSubmit}>
               <div className={styles.requestSection}>
                 <p className={styles.requestSectionTitle}>Employee Details</p>
@@ -347,6 +328,53 @@ export default function PersonalRequestsPage() {
           </div>
         </div>
       </div>
+
+      {submitted ? (
+        <div
+          className={styles.requestSuccessOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="request-success-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setSubmitted(false);
+            }
+          }}
+        >
+          <div className={styles.requestSuccessModal}>
+            <div className={styles.requestSuccessHeader}>
+              <div className={styles.requestSuccessIcon}>
+                <Check size={18} aria-hidden="true" />
+              </div>
+              <button
+                type="button"
+                className={styles.requestSuccessClose}
+                onClick={() => setSubmitted(false)}
+                aria-label="Close request submitted dialog"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <div className={styles.requestSuccessBody}>
+              <h2 className={styles.requestSuccessTitle} id="request-success-title">
+                Request Submitted
+              </h2>
+              <p className={styles.requestSuccessText}>
+                Your manager will receive this request and review it from the admin side.
+              </p>
+            </div>
+            <div className={styles.requestSuccessFooter}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setSubmitted(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -381,4 +409,48 @@ function formatDateRange(start: string, end: string) {
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function RequestStatusRow({ request }: { request: TimeOffRequest }) {
+  const reviewBreakdown = getReviewedDateBreakdown(request);
+
+  return (
+    <div className={styles.requestRow}>
+      <div className={styles.requestInfo}>
+        <p className={styles.requestInfoTitle}>{request.datesAbsent}</p>
+        <p className={styles.requestInfoDates}>
+          {TIME_OFF_REASON_LABELS[request.reason]} · {request.hoursAbsent} hours
+        </p>
+        {request.status === "partial_approved" ? (
+          <div className={styles.requestBreakdown}>
+            {reviewBreakdown.approved.length > 0 ? (
+              <p className={styles.requestBreakdownLine}>
+                <span className={styles.requestBreakdownLabel}>Approved:</span>{" "}
+                {reviewBreakdown.approved.join(", ")}
+              </p>
+            ) : null}
+            {reviewBreakdown.notApproved.length > 0 ? (
+              <p className={styles.requestBreakdownLine}>
+                <span className={styles.requestBreakdownLabel}>Not Approved:</span>{" "}
+                {reviewBreakdown.notApproved.join(", ")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {request.reviewedAt ? (
+          <p className={styles.requestReviewMeta}>
+            {TIME_OFF_STATUS_LABELS[request.status]} by {request.reviewedBy ?? "Admin"} on{" "}
+            {new Intl.DateTimeFormat("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }).format(new Date(request.reviewedAt))}
+          </p>
+        ) : null}
+      </div>
+      <span className={`badge ${STATUS_STYLE[request.status]}`}>
+        {TIME_OFF_STATUS_LABELS[request.status]}
+      </span>
+    </div>
+  );
 }

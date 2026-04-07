@@ -75,6 +75,39 @@
   border: 1px solid color-mix(in srgb, var(--gold) 26%, transparent);
 }
 
+.communicationBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.communicationBannerKicker {
+  margin: 0 0 4px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+}
+
+.communicationBannerTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.communicationBannerCopy {
+  margin: 8px 0 0;
+  font-size: var(--text-sm-plus);
+  line-height: 1.6;
+  color: var(--foreground-muted);
+}
+
+.communicationBannerAction {
+  min-width: 132px;
+}
+
 /* ── Hero shift block ── */
 .heroShiftBlock {
   padding: 16px;
@@ -629,6 +662,15 @@
   .dayCell {
     padding: 12px 4px;
   }
+
+  .communicationBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .communicationBannerAction {
+    width: 100%;
+  }
 }
 
 @media (min-width: 900px) {
@@ -684,5 +726,9 @@
 
   .scheduleOverviewStrip {
     padding: 0;
+  }
+
+  .communicationBanner {
+    padding: 2px 4px;
   }
 }

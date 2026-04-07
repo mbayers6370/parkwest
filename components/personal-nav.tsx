@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BellRing,
   CalendarDays,
   House,
   Repeat,
@@ -17,6 +18,7 @@ const ICONS = {
   schedule: CalendarDays,
   exchange: Repeat,
   requests: ClipboardList,
+  communications: BellRing,
   account: UserRound,
 };
 
@@ -25,6 +27,7 @@ const BOTTOM_TABS = [
   { href: "/personal/schedule", label: "Schedule", icon: ICONS.schedule },
   { href: "/personal/exchange", label: "Exchange", icon: ICONS.exchange },
   { href: "/personal/requests", label: "Requests", icon: ICONS.requests },
+  { href: "/personal/communications", label: "Comms", icon: ICONS.communications },
   { href: "/personal/account", label: "Account", icon: ICONS.account },
 ];
 
@@ -33,6 +36,7 @@ const DESKTOP_TABS = [
   { href: "/personal/schedule", label: "My Schedule" },
   { href: "/personal/exchange", label: "Exchange" },
   { href: "/personal/requests", label: "Requests" },
+  { href: "/personal/communications", label: "Communications" },
   { href: "/personal/account", label: "Account" },
 ];
 

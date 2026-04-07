@@ -146,12 +146,129 @@
   color: var(--foreground-muted);
 }
 
+.requestReviewMeta {
+  margin: 6px 0 0;
+  font-size: var(--text-xs);
+  color: var(--foreground-muted);
+}
+
+.requestBreakdown {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.requestBreakdownLine {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--foreground-muted);
+}
+
+.requestBreakdownLabel {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.requestSuccessOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--overlay-scrim);
+}
+
+.requestSuccessModal {
+  width: min(100%, 420px);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 12%, var(--ivory-100));
+  box-shadow: var(--overlay-shadow-soft), var(--overlay-shadow-strong);
+  overflow: hidden;
+}
+
+.requestSuccessHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 0;
+}
+
+.requestSuccessIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--gold) 14%, var(--ivory-100));
+  color: var(--gold-dark);
+}
+
+.requestSuccessClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 12%, var(--ivory-100));
+  background: var(--surface);
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.requestSuccessBody {
+  padding: 12px 18px 20px;
+}
+
+.requestSuccessTitle {
+  margin: 0 0 8px;
+  font-size: var(--text-xl);
+  font-weight: 800;
+}
+
+.requestSuccessText {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--foreground-muted);
+}
+
+.requestSuccessFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 18px 18px;
+}
+
 @media (max-width: 899px) {
   .requestFormGrid,
   .requestFormGridThree,
   .requestReasonList,
   .requestWindowGrid {
     grid-template-columns: 1fr;
+  }
+
+  .requestSuccessOverlay {
+    padding: 16px;
+    align-items: flex-end;
+  }
+
+  .requestSuccessModal {
+    width: 100%;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .requestSuccessFooter {
+    justify-content: stretch;
+  }
+
+  .requestSuccessFooter :global(.primary-button) {
+    width: 100%;
   }
 }
 

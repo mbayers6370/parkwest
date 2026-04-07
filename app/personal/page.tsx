@@ -44,6 +44,13 @@ import {
   loadStoredTimeOffRequests,
   TIME_OFF_REQUESTS_UPDATED_EVENT,
 } from "@/lib/time-off-request-store";
+import {
+  COMMUNICATIONS_UPDATED_EVENT,
+  getAllCommunications,
+  loadStoredCommunications,
+  splitCommunicationsByStatus,
+  type CommunicationItem,
+} from "@/lib/communications";
 import shared from "./personal-shared.module.css";
 import styles from "./home.module.css";
 import requestStyles from "./requests/requests.module.css";
@@ -94,6 +101,7 @@ const ATTENDANCE_OPTIONS: Array<{
 export default function PersonalHomePage() {
   const [storedEvents, setStoredEvents] = useState<AttendanceEvent[]>([]);
   const [storedRequests, setStoredRequests] = useState<TimeOffRequest[]>([]);
+  const [storedCommunications, setStoredCommunications] = useState<CommunicationItem[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
@@ -119,29 +127,37 @@ export default function PersonalHomePage() {
     const syncRequests = () => {
       setStoredRequests(loadStoredTimeOffRequests());
     };
+    const syncCommunications = () => {
+      setStoredCommunications(loadStoredCommunications());
+    };
 
     syncStoredEvents();
     syncSchedule();
     syncOverrides();
     syncRequests();
+    syncCommunications();
     window.addEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
     window.addEventListener(SCHEDULE_UPDATED_EVENT, syncSchedule);
     window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncOverrides);
     window.addEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncRequests);
+    window.addEventListener(COMMUNICATIONS_UPDATED_EVENT, syncCommunications);
     window.addEventListener("storage", syncStoredEvents);
     window.addEventListener("storage", syncSchedule);
     window.addEventListener("storage", syncOverrides);
     window.addEventListener("storage", syncRequests);
+    window.addEventListener("storage", syncCommunications);
 
     return () => {
       window.removeEventListener(ATTENDANCE_EVENTS_UPDATED_EVENT, syncStoredEvents);
       window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncSchedule);
       window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncOverrides);
       window.removeEventListener(TIME_OFF_REQUESTS_UPDATED_EVENT, syncRequests);
+      window.removeEventListener(COMMUNICATIONS_UPDATED_EVENT, syncCommunications);
       window.removeEventListener("storage", syncStoredEvents);
       window.removeEventListener("storage", syncSchedule);
       window.removeEventListener("storage", syncOverrides);
       window.removeEventListener("storage", syncRequests);
+      window.removeEventListener("storage", syncCommunications);
     };
   }, []);
 
@@ -243,6 +259,10 @@ export default function PersonalHomePage() {
         .sort((a, b) => b.dateSubmitted.localeCompare(a.dateSubmitted)),
     [storedRequests],
   );
+  const featuredCommunication = useMemo(() => {
+    const items = getAllCommunications(storedCommunications, "580");
+    return splitCommunicationsByStatus(items, currentDate).active[0] ?? null;
+  }, [currentDate, storedCommunications]);
 
   const nextShiftAttendance = useMemo(
     () => {
@@ -367,6 +387,26 @@ export default function PersonalHomePage() {
           </div>
         </div>
       </div>
+
+      {featuredCommunication ? (
+        <section
+          className={`${shared.personalFullSpan} ${shared.personalSection} ${shared.personalPanel}`}
+        >
+          <div className={styles.communicationBanner}>
+            <div>
+              <p className={styles.communicationBannerKicker}>Communications</p>
+              <h2 className={styles.communicationBannerTitle}>{featuredCommunication.title}</h2>
+              <p className={styles.communicationBannerCopy}>{featuredCommunication.summary}</p>
+            </div>
+            <Link
+              href="/personal/communications"
+              className={`secondary-button ${styles.communicationBannerAction}`}
+            >
+              View Details
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section
         className={`${shared.personalFullSpan} ${shared.personalSection} ${shared.personalPanel}`}

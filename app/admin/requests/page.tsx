@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import {
   getAllTimeOffRequests,
+  getCanonicalTimeOffRequestId,
+  getTimeOffRequestDisplaySegments,
   TIME_OFF_REASON_LABELS,
   TIME_OFF_STATUS_LABELS,
   TIME_OFF_WINDOW_LABELS,
-  groupRequestsBySaturdayWeek,
+  groupAlreadySplitRequestsByMonthAndWeek,
+  groupAlreadySplitRequestsBySaturdayWeek,
   type TimeOffRequest,
   type TimeOffStatus,
 } from "@/lib/time-off-requests";
@@ -49,6 +53,8 @@ export default function AdminRequestsPage() {
   const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<TimeOffStatus>("pending");
   const [activeDepartment, setActiveDepartment] = useState<string>("all");
+  const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
+  const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const syncStoredRequests = () => {
@@ -118,9 +124,19 @@ export default function AdminRequestsPage() {
         })),
     [adminProperty?.propertyKey, allRequests, employees],
   );
+  const requestDisplaySegments = useMemo(
+    () =>
+      requestsWithDepartment.flatMap((request) =>
+        getTimeOffRequestDisplaySegments(request).map((segment) => ({
+          ...segment,
+          departmentLabel: request.departmentLabel,
+        })),
+      ),
+    [requestsWithDepartment],
+  );
   const filteredRequests = useMemo(
     () =>
-      requestsWithDepartment.filter((request) => {
+      requestDisplaySegments.filter((request) => {
         if (request.status !== activeTab) {
           return false;
         }
@@ -131,27 +147,82 @@ export default function AdminRequestsPage() {
 
         return request.departmentLabel === activeDepartment;
       }),
-    [activeDepartment, activeTab, requestsWithDepartment],
+    [activeDepartment, activeTab, requestDisplaySegments],
   );
   const requestGroups = useMemo(
-    () => groupRequestsBySaturdayWeek(filteredRequests),
+    () => groupAlreadySplitRequestsBySaturdayWeek(filteredRequests),
+    [filteredRequests],
+  );
+  const monthGroups = useMemo(
+    () => groupAlreadySplitRequestsByMonthAndWeek(filteredRequests),
     [filteredRequests],
   );
 
-  function updateRequestStatus(requestId: string, status: Exclude<TimeOffStatus, "pending">) {
-    const existingStoredRequest = storedRequests.find((request) => request.id === requestId);
+  function updateRequestStatus(
+    request: TimeOffRequest,
+    status: "approved" | "not_approved",
+  ) {
+    const requestId = getCanonicalTimeOffRequestId(request);
+    const existingStoredRequest = storedRequests.find(
+      (request) => getCanonicalTimeOffRequestId(request) === requestId,
+    );
     const sourceRequest =
-      existingStoredRequest ?? allRequests.find((request) => request.id === requestId);
+      existingStoredRequest ??
+      allRequests.find((request) => getCanonicalTimeOffRequestId(request) === requestId);
 
     if (!sourceRequest) {
       return;
     }
 
+    const reviewedAt = new Date().toISOString();
+    const nextReviewSegment = {
+      id: `${requestId}-${request.absenceStartDate}-${request.absenceEndDate}`,
+      absenceStartDate: request.absenceStartDate ?? sourceRequest.absenceStartDate ?? sourceRequest.dateSubmitted,
+      absenceEndDate:
+        request.absenceEndDate ??
+        sourceRequest.absenceEndDate ??
+        sourceRequest.absenceStartDate ??
+        sourceRequest.dateSubmitted,
+      datesAbsent: request.datesAbsent,
+      status,
+      reviewedAt,
+      reviewedBy: "Admin",
+    };
+
+    function applySegmentUpdate(target: TimeOffRequest) {
+      const existingSegments = target.reviewSegments ?? [];
+      const remainingSegments = existingSegments.filter(
+        (segment) =>
+          !(
+            segment.absenceStartDate === nextReviewSegment.absenceStartDate &&
+            segment.absenceEndDate === nextReviewSegment.absenceEndDate
+          ),
+      );
+
+      return {
+        ...target,
+        reviewSegments: [...remainingSegments, nextReviewSegment].sort((a, b) =>
+          a.absenceStartDate.localeCompare(b.absenceStartDate),
+        ),
+        reviewedAt,
+        reviewedBy: "Admin",
+      } satisfies TimeOffRequest;
+    }
+
     const nextStoredRequests = existingStoredRequest
       ? storedRequests.map((request) =>
-          request.id !== requestId ? request : { ...request, status },
+          getCanonicalTimeOffRequestId(request) !== requestId
+            ? request
+            : applySegmentUpdate(request),
         )
-      : [{ ...sourceRequest, status }, ...storedRequests];
+      : [
+          applySegmentUpdate({
+            ...sourceRequest,
+            id: getCanonicalTimeOffRequestId(sourceRequest),
+            sourceRequestId: getCanonicalTimeOffRequestId(sourceRequest),
+          }),
+          ...storedRequests,
+        ];
 
     setStoredRequests(nextStoredRequests);
     saveStoredTimeOffRequests(nextStoredRequests);
@@ -191,7 +262,7 @@ export default function AdminRequestsPage() {
       </header>
 
       <div className="admin-content admin-requests-layout">
-        <div className="admin-page-tabs" aria-label="Department filters">
+        <div className="admin-page-tabs admin-requests-department-tabs" aria-label="Department filters">
           <button
             type="button"
             className={`admin-page-tab${activeDepartment === "all" ? " active" : ""}`}
@@ -210,7 +281,7 @@ export default function AdminRequestsPage() {
             </button>
           ))}
         </div>
-        {requestGroups.length === 0 ? (
+        {(activeTab === "pending" ? requestGroups.length : monthGroups.length) === 0 ? (
           <section className="admin-request-week">
             <div className="empty-state">
               <p className="mini-title">No {TIME_OFF_STATUS_LABELS[activeTab].toLowerCase()} requests.</p>
@@ -220,101 +291,198 @@ export default function AdminRequestsPage() {
             </div>
           </section>
         ) : null}
-        {requestGroups.map((group) => (
-          <section key={group.weekStart} className="admin-request-week">
-            <div className="admin-request-week-header">
-              <div>
-                <p className="admin-request-week-kicker">Saturday Start Week</p>
-                <h2 className="admin-request-week-title">{group.weekLabel}</h2>
-              </div>
-              <span className="badge gold">
-                {group.requests.length} Request
-                {group.requests.length === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            <div className="admin-request-list">
-              {group.requests.map((request) => (
-                <article key={request.id} className="admin-request-card">
-                  <div className="admin-request-card-top">
-                    <div>
-                      <p className="admin-request-name">{request.fullName}</p>
-                      <p className="admin-request-meta">
-                        {request.shift} · {request.location} · Submitted{" "}
-                        {request.dateSubmitted}
-                      </p>
-                    </div>
-                    <span className={`badge ${STATUS_CLASS[request.status]}`}>
-                      {TIME_OFF_STATUS_LABELS[request.status]}
-                    </span>
+        {activeTab === "pending"
+          ? requestGroups.map((group) => (
+              <section key={group.weekStart} className="admin-request-week">
+                <div className="admin-request-week-header">
+                  <div>
+                    <h2 className="admin-request-week-title">{group.weekLabel}</h2>
                   </div>
+                </div>
 
-                  <div className="admin-request-detail-grid">
-                    <div>
-                      <p className="admin-request-detail-label">Supervisor</p>
-                      <p className="admin-request-detail-value">
-                        {request.supervisor}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="admin-request-detail-label">Hours Absent</p>
-                      <p className="admin-request-detail-value">
-                        {request.hoursAbsent}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="admin-request-detail-label">Dates Absent</p>
-                      <p className="admin-request-detail-value">
-                        {request.datesAbsent}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="admin-request-detail-label">Request Timing</p>
-                      <p className="admin-request-detail-value">
-                        {TIME_OFF_WINDOW_LABELS[request.requestWindow]}
-                      </p>
-                    </div>
-                  </div>
+                <div className="admin-request-list">
+                  {group.requests.map((request) => (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      employees={employees}
+                      onUpdateStatus={updateRequestStatus}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          : monthGroups.map((month) => {
+              const monthExpanded = expandedMonths[month.monthKey] ?? true;
 
-                  <div className="admin-request-reason-row">
-                    <span className="badge success">
-                      {getRequestDepartmentLabel(request, employees)}
-                    </span>
-                    <span className="badge gold">
-                      {TIME_OFF_REASON_LABELS[request.reason]}
-                    </span>
-                    {request.explanation ? (
-                      <p className="admin-request-explanation">
-                        {request.explanation}
-                      </p>
-                    ) : null}
-                  </div>
+              return (
+                <section key={month.monthKey} className="admin-request-month">
+                  <button
+                    type="button"
+                    className="admin-request-month-toggle"
+                    onClick={() =>
+                      setExpandedMonths((current) => ({
+                        ...current,
+                        [month.monthKey]: !monthExpanded,
+                      }))
+                    }
+                  >
+                    <div>
+                      <h2 className="admin-request-week-title">{month.monthLabel}</h2>
+                    </div>
+                    <div className="admin-request-toggle-right">
+                      <span className="badge gold">
+                        {month.weeks.reduce((sum, week) => sum + week.requests.length, 0)} Request
+                        {month.weeks.reduce((sum, week) => sum + week.requests.length, 0) === 1
+                          ? ""
+                          : "s"}
+                      </span>
+                      {monthExpanded ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
+                    </div>
+                  </button>
 
-                  <div className="admin-request-actions">
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => updateRequestStatus(request.id, "not_approved")}
-                      disabled={request.status === "not_approved"}
-                    >
-                      Not Approved
-                    </button>
-                    <button
-                      className="primary-button"
-                      type="button"
-                      onClick={() => updateRequestStatus(request.id, "approved")}
-                      disabled={request.status === "approved"}
-                    >
-                      Approve
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
+                  {monthExpanded ? (
+                    <div className="admin-request-month-body">
+                      {month.weeks.map((group) => {
+                        const weekExpanded = expandedWeeks[group.weekStart] ?? true;
+
+                        return (
+                          <section key={group.weekStart} className="admin-request-week nested">
+                            <button
+                              type="button"
+                              className="admin-request-week-toggle"
+                              onClick={() =>
+                                setExpandedWeeks((current) => ({
+                                  ...current,
+                                  [group.weekStart]: !weekExpanded,
+                                }))
+                              }
+                            >
+                              <div>
+                                <h3 className="admin-request-week-title">{group.weekLabel}</h3>
+                              </div>
+                              <div className="admin-request-toggle-right">
+                                <span className="badge gold">
+                                  {group.requests.length} Request
+                                  {group.requests.length === 1 ? "" : "s"}
+                                </span>
+                                {weekExpanded ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
+                              </div>
+                            </button>
+
+                            {weekExpanded ? (
+                              <div className="admin-request-list">
+                                {group.requests.map((request) => (
+                                  <RequestCard
+                                    key={request.id}
+                                    request={request}
+                                    employees={employees}
+                                    onUpdateStatus={updateRequestStatus}
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
+                          </section>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </section>
+              );
+            })}
       </div>
     </>
+  );
+}
+
+function RequestCard({
+  request,
+  employees,
+  onUpdateStatus,
+}: {
+  request: TimeOffRequest;
+  employees: EmployeeDirectoryEntry[];
+  onUpdateStatus: (request: TimeOffRequest, status: "approved" | "not_approved") => void;
+}) {
+  const showActions = request.status === "pending";
+  const showPendingDetails = request.status === "pending";
+
+  return (
+    <article className="admin-request-card">
+      <div className="admin-request-card-top">
+        <div>
+          <p className="admin-request-name">{request.fullName}</p>
+          <p className="admin-request-meta">
+            {request.shift} · {request.location} · Submitted {request.dateSubmitted}
+          </p>
+        </div>
+        {showPendingDetails ? (
+          <div className="admin-request-card-badges">
+            <span className="badge success">{getRequestDepartmentLabel(request, employees)}</span>
+            <span className="badge gold">{TIME_OFF_REASON_LABELS[request.reason]}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="admin-request-detail-grid">
+        {showPendingDetails ? (
+          <div>
+            <p className="admin-request-detail-label">Supervisor</p>
+            <p className="admin-request-detail-value">{request.supervisor}</p>
+          </div>
+        ) : null}
+        <div>
+          <p className="admin-request-detail-label">Hours Absent</p>
+          <p className="admin-request-detail-value">{request.hoursAbsent}</p>
+        </div>
+        <div>
+          <p className="admin-request-detail-label">Dates Absent</p>
+          <p className="admin-request-detail-value">{request.datesAbsent}</p>
+        </div>
+        <div>
+          <p className="admin-request-detail-label">Request Timing</p>
+          <p className="admin-request-detail-value">
+            {TIME_OFF_WINDOW_LABELS[request.requestWindow]}
+          </p>
+        </div>
+      </div>
+
+      {request.explanation ? (
+        <p className="admin-request-explanation">{request.explanation}</p>
+      ) : null}
+
+      {request.reviewedAt ? (
+        <p className="admin-request-review-meta">
+          Reviewed {new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }).format(new Date(request.reviewedAt))}
+          {request.reviewedBy ? ` by ${request.reviewedBy}` : ""}
+        </p>
+      ) : null}
+
+      {showActions ? (
+        <div className="admin-request-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onUpdateStatus(request, "not_approved")}
+            disabled={request.status === "not_approved"}
+          >
+            Not Approved
+          </button>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => onUpdateStatus(request, "approved")}
+            disabled={request.status === "approved"}
+          >
+            Approve
+          </button>
+        </div>
+      ) : null}
+    </article>
   );
 }
 

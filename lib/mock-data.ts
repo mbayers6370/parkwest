@@ -23,7 +23,7 @@ export const mockEmployees = [
       {
         isPrimary: true,
         department: {
-          departmentName: "Floor",
+          departmentName: "Dealer",
         },
       },
     ],

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowRight,
+  BellRing,
   Building2,
   CalendarDays,
   ClipboardList,
@@ -27,6 +28,7 @@ const ICONS = {
   scheduleImport: Upload,
   requests: ClipboardList,
   scheduleManager: CalendarDays,
+  communications: BellRing,
   rules: SlidersHorizontal,
   auditLog: FileClock,
   support: Building2,
@@ -47,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Overview", icon: ICONS.overview, exact: true },
   { href: "/admin/employees", label: "Employees", icon: ICONS.employees },
   { href: "/admin/requests", label: "Requests", icon: ICONS.requests },
+  { href: "/admin/communications", label: "Communications", icon: ICONS.communications },
   { href: "/admin/schedule-manager", label: "Schedule Manager", icon: ICONS.scheduleManager },
   { href: "/admin/audit-log", label: "Audit Log", icon: ICONS.auditLog },
 ];
@@ -59,6 +62,7 @@ const BOTTOM_TABS: NavItem[] = [
   { href: "/admin", label: "Overview", icon: ICONS.overview, exact: true },
   { href: "/admin/schedule-import", label: "Schedule", icon: ICONS.scheduleManager },
   { href: "/admin/requests", label: "Requests", icon: ICONS.requests },
+  { href: "/admin/communications", label: "Comms", icon: ICONS.communications },
   { href: "/admin/employees", label: "Employees", icon: ICONS.employees },
   { href: "/admin/audit-log", label: "More", icon: ICONS.auditLog },
 ];

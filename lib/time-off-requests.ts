@@ -6,10 +6,25 @@ export type TimeOffReason =
 
 export type TimeOffWindow = "request_in_advance" | "after_absence";
 
-export type TimeOffStatus = "pending" | "approved" | "not_approved";
+export type TimeOffStatus =
+  | "pending"
+  | "approved"
+  | "not_approved"
+  | "partial_approved";
+
+export type TimeOffReviewSegment = {
+  id: string;
+  absenceStartDate: string;
+  absenceEndDate: string;
+  datesAbsent: string;
+  status: Exclude<TimeOffStatus, "pending" | "partial_approved">;
+  reviewedAt: string;
+  reviewedBy?: string;
+};
 
 export type TimeOffRequest = {
   id: string;
+  sourceRequestId?: string;
   fullName: string;
   supervisor: string;
   dateSubmitted: string;
@@ -23,6 +38,9 @@ export type TimeOffRequest = {
   explanation?: string;
   requestWindow: TimeOffWindow;
   status: TimeOffStatus;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewSegments?: TimeOffReviewSegment[];
 };
 
 export const TIME_OFF_REASON_LABELS: Record<TimeOffReason, string> = {
@@ -41,6 +59,7 @@ export const TIME_OFF_STATUS_LABELS: Record<TimeOffStatus, string> = {
   pending: "Pending",
   approved: "Approved",
   not_approved: "Not Approved",
+  partial_approved: "Partial Approval",
 };
 
 export const MOCK_TIME_OFF_REQUESTS: TimeOffRequest[] = [];
@@ -72,14 +91,18 @@ function formatWeekLabel(start: Date) {
 }
 
 export function groupRequestsBySaturdayWeek(requests: TimeOffRequest[]) {
+  return groupAlreadySplitRequestsBySaturdayWeek(
+    requests.flatMap(getTimeOffRequestDisplaySegments),
+  );
+}
+
+export function groupAlreadySplitRequestsBySaturdayWeek(requests: TimeOffRequest[]) {
   const groups = new Map<
     string,
     { weekLabel: string; weekStart: string; requests: TimeOffRequest[] }
   >();
 
-  const expandedRequests = requests.flatMap(splitRequestAcrossWeeks);
-
-  const sorted = [...expandedRequests].sort((a, b) =>
+  const sorted = [...requests].sort((a, b) =>
     getRequestWeekAnchor(b).localeCompare(getRequestWeekAnchor(a)),
   );
 
@@ -101,6 +124,45 @@ export function groupRequestsBySaturdayWeek(requests: TimeOffRequest[]) {
   return [...groups.values()];
 }
 
+export function groupRequestsByMonthAndWeek(requests: TimeOffRequest[]) {
+  return groupAlreadySplitRequestsByMonthAndWeek(
+    requests.flatMap(getTimeOffRequestDisplaySegments),
+  );
+}
+
+export function groupAlreadySplitRequestsByMonthAndWeek(requests: TimeOffRequest[]) {
+  const weekGroups = groupAlreadySplitRequestsBySaturdayWeek(requests);
+  const months = new Map<
+    string,
+    {
+      monthKey: string;
+      monthLabel: string;
+      weeks: ReturnType<typeof groupRequestsBySaturdayWeek>;
+    }
+  >();
+
+  weekGroups.forEach((weekGroup) => {
+    const anchor = new Date(`${weekGroup.weekStart}T12:00:00`);
+    const monthKey = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, "0")}`;
+    const monthLabel = anchor.toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+
+    if (!months.has(monthKey)) {
+      months.set(monthKey, {
+        monthKey,
+        monthLabel,
+        weeks: [],
+      });
+    }
+
+    months.get(monthKey)?.weeks.push(weekGroup);
+  });
+
+  return [...months.values()].sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+}
+
 export function getAllTimeOffRequests(storedRequests: TimeOffRequest[] = []) {
   const mergedById = new Map<string, TimeOffRequest>();
 
@@ -113,6 +175,47 @@ export function getAllTimeOffRequests(storedRequests: TimeOffRequest[] = []) {
   });
 
   return [...mergedById.values()];
+}
+
+export function getTimeOffRequestDisplaySegments(request: TimeOffRequest) {
+  const normalized = normalizeTimeOffRequest(request);
+  const displaySegments = splitRequestAcrossWeeks(normalized);
+
+  return displaySegments.map((segment) => {
+    const matchingReviewSegment = normalized.reviewSegments?.find(
+      (reviewSegment) =>
+        reviewSegment.absenceStartDate === segment.absenceStartDate &&
+        reviewSegment.absenceEndDate === segment.absenceEndDate,
+    );
+
+    const fallbackReviewedStatus =
+      normalized.reviewSegments?.length
+        ? "pending"
+        : normalized.status === "approved" || normalized.status === "not_approved"
+          ? normalized.status
+          : "pending";
+
+    return {
+      ...segment,
+      status: matchingReviewSegment?.status ?? fallbackReviewedStatus,
+      reviewedAt: matchingReviewSegment?.reviewedAt ?? normalized.reviewedAt,
+      reviewedBy: matchingReviewSegment?.reviewedBy ?? normalized.reviewedBy,
+    } satisfies TimeOffRequest;
+  });
+}
+
+export function getReviewedDateBreakdown(request: TimeOffRequest) {
+  const normalized = normalizeTimeOffRequest(request);
+  const reviewSegments = normalized.reviewSegments ?? [];
+
+  return {
+    approved: reviewSegments
+      .filter((segment) => segment.status === "approved")
+      .map((segment) => segment.datesAbsent),
+    notApproved: reviewSegments
+      .filter((segment) => segment.status === "not_approved")
+      .map((segment) => segment.datesAbsent),
+  };
 }
 
 function getRequestWeekAnchor(request: TimeOffRequest) {
@@ -148,6 +251,7 @@ function splitRequestAcrossWeeks(request: TimeOffRequest) {
     segments.push({
       ...normalized,
       id: `${normalized.id}-${weekStart.toISOString().slice(0, 10)}`,
+      sourceRequestId: normalized.sourceRequestId ?? normalized.id,
       absenceStartDate: toIsoFromDate(segmentStart),
       absenceEndDate: toIsoFromDate(segmentEnd),
       datesAbsent: formatSegmentDateRange(segmentStart, segmentEnd),
@@ -162,20 +266,70 @@ function splitRequestAcrossWeeks(request: TimeOffRequest) {
 
 export function normalizeTimeOffRequest(request: TimeOffRequest): TimeOffRequest {
   if (request.absenceStartDate) {
-    return request;
+    return {
+      ...request,
+      sourceRequestId: request.sourceRequestId ?? request.id,
+      status: deriveRequestStatus({
+        ...request,
+        sourceRequestId: request.sourceRequestId ?? request.id,
+      }),
+    };
   }
 
   const inferredDates = inferAbsenceDates(request);
 
   if (!inferredDates) {
-    return request;
+    return {
+      ...request,
+      sourceRequestId: request.sourceRequestId ?? request.id,
+      status: deriveRequestStatus({
+        ...request,
+        sourceRequestId: request.sourceRequestId ?? request.id,
+      }),
+    };
   }
 
   return {
     ...request,
+    sourceRequestId: request.sourceRequestId ?? request.id,
     absenceStartDate: inferredDates.absenceStartDate,
     absenceEndDate: inferredDates.absenceEndDate,
+    status: deriveRequestStatus({
+      ...request,
+      sourceRequestId: request.sourceRequestId ?? request.id,
+      absenceStartDate: inferredDates.absenceStartDate,
+      absenceEndDate: inferredDates.absenceEndDate,
+    }),
   };
+}
+
+export function getCanonicalTimeOffRequestId(request: TimeOffRequest) {
+  return request.sourceRequestId ?? request.id;
+}
+
+function deriveRequestStatus(request: TimeOffRequest): TimeOffStatus {
+  const reviewSegments = request.reviewSegments ?? [];
+
+  if (reviewSegments.length === 0) {
+    return request.status;
+  }
+
+  const approvedCount = reviewSegments.filter(
+    (segment) => segment.status === "approved",
+  ).length;
+  const deniedCount = reviewSegments.filter(
+    (segment) => segment.status === "not_approved",
+  ).length;
+
+  if (approvedCount === reviewSegments.length) {
+    return "approved";
+  }
+
+  if (deniedCount === reviewSegments.length) {
+    return "not_approved";
+  }
+
+  return "partial_approved";
 }
 
 function inferAbsenceDates(request: TimeOffRequest) {
