@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import { AdminScheduleImport } from "@/components/admin-schedule-import";
-import { getScheduleShiftFamily, isScheduleStatusToken } from "@/lib/schedule-color-system";
+import {
+  getScheduleEditOptions,
+  getScheduleShiftFamily,
+  isScheduleStatusToken,
+} from "@/lib/schedule-color-system";
 import {
   getPublishedScheduleTitle,
   loadPublishedSchedules,
@@ -71,6 +75,7 @@ export default function AdminScheduleManagerPage() {
   const [selectedScheduleTitle, setSelectedScheduleTitle] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
   const [deleteTargetTitle, setDeleteTargetTitle] = useState<string | null>(null);
+  const scheduleEditOptions = useMemo(() => getScheduleEditOptions(), []);
 
   useEffect(() => {
     const syncSchedules = () => {
@@ -441,13 +446,30 @@ export default function AdminScheduleManagerPage() {
                           <label className="field-label" htmlFor={`${selectedEmployee.key}-${day}`}>
                             {day}
                           </label>
-                          <input
+                          <p
+                            className="mini-label"
+                            style={{ textAlign: "left", margin: 0, opacity: 0.7 }}
+                          >
+                            {`${(selectedEmployee.dateHeaders[index] ?? "").toUpperCase()} ${selectedEmployee.shifts[index] ?? "OFF"}`.trim()}
+                          </p>
+                          <select
                             id={`${selectedEmployee.key}-${day}`}
                             className="text-input"
                             value={selectedEmployee.shifts[index] ?? ""}
                             onChange={(event) => updateSelectedEmployeeShift(index, event.target.value)}
-                            placeholder={selectedEmployee.dateHeaders[index] ?? ""}
-                          />
+                          >
+                            {selectedEmployee.shifts[index] &&
+                            !scheduleEditOptions.includes(selectedEmployee.shifts[index]) ? (
+                              <option value={selectedEmployee.shifts[index]}>
+                                {selectedEmployee.shifts[index]}
+                              </option>
+                            ) : null}
+                            {scheduleEditOptions.map((option) => (
+                              <option key={`${selectedEmployee.key}-${day}-${option}`} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       ))}
                     </div>

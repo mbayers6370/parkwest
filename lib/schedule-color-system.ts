@@ -34,6 +34,22 @@ const SHIFT_FAMILY_MAP: Record<string, ScheduleShiftFamily> = {
   "1:45a": { familyLabel: "2 AM", displayLabel: "1:45a", tone: "red" },
 };
 
+const SCHEDULE_EDIT_OPTIONS = [
+  "RO",
+  "PTO",
+  "OFF",
+  "7:45a",
+  "9:45a",
+  "10:35a",
+  "11:45a",
+  "1:45p",
+  "3:45p",
+  "5:45p",
+  "7:45p",
+  "9:45p",
+  "11:45p",
+] as const;
+
 const SHIFT_FAMILY_ORDER = [
   "8 AM",
   "10 AM",
@@ -74,4 +90,8 @@ export function getScheduleShiftFamilies(values: string[]) {
   return SHIFT_FAMILY_ORDER.map((label) => selectedFamilies.get(label)).filter(
     (family): family is ScheduleShiftFamily => Boolean(family),
   );
+}
+
+export function getScheduleEditOptions(): string[] {
+  return [...SCHEDULE_EDIT_OPTIONS];
 }
