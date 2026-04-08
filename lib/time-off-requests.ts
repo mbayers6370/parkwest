@@ -43,6 +43,14 @@ export type TimeOffRequest = {
   reviewSegments?: TimeOffReviewSegment[];
 };
 
+export type TimeOffReviewDay = {
+  isoDate: string;
+  label: string;
+  status: "pending" | "approved" | "not_approved";
+  reviewedAt?: string;
+  reviewedBy?: string;
+};
+
 export const TIME_OFF_REASON_LABELS: Record<TimeOffReason, string> = {
   vacation: "Vacation",
   paid_sick_leave: "Paid Sick Leave",
@@ -182,49 +190,141 @@ export function getTimeOffRequestDisplaySegments(request: TimeOffRequest) {
   const displaySegments = splitRequestAcrossWeeks(normalized);
 
   return displaySegments.map((segment) => {
-    const matchingReviewSegment = normalized.reviewSegments?.find(
-      (reviewSegment) =>
-        reviewSegment.absenceStartDate === segment.absenceStartDate &&
-        reviewSegment.absenceEndDate === segment.absenceEndDate,
+    const segmentStatus = deriveSegmentStatus(
+      normalized,
+      segment.absenceStartDate ?? normalized.absenceStartDate ?? normalized.dateSubmitted,
+      segment.absenceEndDate ??
+        normalized.absenceEndDate ??
+        normalized.absenceStartDate ??
+        normalized.dateSubmitted,
     );
-
-    const fallbackReviewedStatus =
-      normalized.reviewSegments?.length
-        ? "pending"
-        : normalized.status === "approved" || normalized.status === "not_approved"
-          ? normalized.status
-          : "pending";
+    const matchingReviewDay = getRequestReviewDays(normalized, {
+      startDate: segment.absenceStartDate,
+      endDate: segment.absenceEndDate,
+    }).find((reviewDay) => reviewDay.reviewedAt);
 
     return {
       ...segment,
-      status: matchingReviewSegment?.status ?? fallbackReviewedStatus,
-      reviewedAt: matchingReviewSegment?.reviewedAt ?? normalized.reviewedAt,
-      reviewedBy: matchingReviewSegment?.reviewedBy ?? normalized.reviewedBy,
+      status: segmentStatus,
+      reviewedAt: matchingReviewDay?.reviewedAt ?? normalized.reviewedAt,
+      reviewedBy: matchingReviewDay?.reviewedBy ?? normalized.reviewedBy,
     } satisfies TimeOffRequest;
   });
 }
 
-export function getReviewedDateBreakdown(request: TimeOffRequest) {
+export function getAdminTimeOffRequestDisplaySegments(request: TimeOffRequest) {
   const normalized = normalizeTimeOffRequest(request);
-  const reviewSegments = normalized.reviewSegments ?? [];
+  const reviewDays = getRequestReviewDays(normalized);
+
+  if (reviewDays.length === 0) {
+    return [normalized];
+  }
+
+  const segments: Array<{
+    startDate: string;
+    endDate: string;
+    status: TimeOffReviewDay["status"];
+    reviewedAt?: string;
+    reviewedBy?: string;
+  }> = [];
+
+  reviewDays.forEach((reviewDay) => {
+    const lastSegment = segments.at(-1);
+
+    if (!lastSegment) {
+      segments.push({
+        startDate: reviewDay.isoDate,
+        endDate: reviewDay.isoDate,
+        status: reviewDay.status,
+        reviewedAt: reviewDay.reviewedAt,
+        reviewedBy: reviewDay.reviewedBy,
+      });
+      return;
+    }
+
+    const nextDate = toNoonDate(lastSegment.endDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const isConsecutive = toIsoFromDate(nextDate) === reviewDay.isoDate;
+    const sameWeek =
+      startOfSaturdayWeek(lastSegment.startDate).toISOString().slice(0, 10) ===
+      startOfSaturdayWeek(reviewDay.isoDate).toISOString().slice(0, 10);
+
+    if (lastSegment.status === reviewDay.status && isConsecutive && sameWeek) {
+      lastSegment.endDate = reviewDay.isoDate;
+      lastSegment.reviewedAt = reviewDay.reviewedAt ?? lastSegment.reviewedAt;
+      lastSegment.reviewedBy = reviewDay.reviewedBy ?? lastSegment.reviewedBy;
+      return;
+    }
+
+    segments.push({
+      startDate: reviewDay.isoDate,
+      endDate: reviewDay.isoDate,
+      status: reviewDay.status,
+      reviewedAt: reviewDay.reviewedAt,
+      reviewedBy: reviewDay.reviewedBy,
+    });
+  });
+
+  return segments.map((segment) => ({
+    ...normalized,
+    id: `${normalized.id}-${segment.status}-${segment.startDate}`,
+    sourceRequestId: normalized.sourceRequestId ?? normalized.id,
+    absenceStartDate: segment.startDate,
+    absenceEndDate: segment.endDate,
+    datesAbsent: formatSegmentDateRange(
+      toNoonDate(segment.startDate),
+      toNoonDate(segment.endDate),
+    ),
+    status: segment.status,
+    reviewedAt: segment.reviewedAt,
+    reviewedBy: segment.reviewedBy,
+  }));
+}
+
+export function getReviewedDateBreakdown(request: TimeOffRequest) {
+  const reviewedDays = getRequestReviewDays(request);
 
   return {
-    approved: reviewSegments
-      .filter((segment) => segment.status === "approved")
-      .map((segment) => segment.datesAbsent),
-    notApproved: reviewSegments
-      .filter((segment) => segment.status === "not_approved")
-      .map((segment) => segment.datesAbsent),
+    approved: collapseReviewedDateRanges(
+      reviewedDays.filter((reviewDay) => reviewDay.status === "approved"),
+    ),
+    notApproved: collapseReviewedDateRanges(
+      reviewedDays.filter((reviewDay) => reviewDay.status === "not_approved"),
+    ),
   };
 }
 
+export function getRequestReviewDays(
+  request: TimeOffRequest,
+  options?: { startDate?: string; endDate?: string },
+): TimeOffReviewDay[] {
+  const normalized = withResolvedAbsenceDates(request);
+  const requestDates = getRequestDates(normalized);
+  const startBound = options?.startDate;
+  const endBound = options?.endDate;
+
+  return requestDates
+    .filter((isoDate) => (!startBound || isoDate >= startBound) && (!endBound || isoDate <= endBound))
+    .map((isoDate) => {
+      const matchingReviewSegment = getReviewSegmentForDate(normalized, isoDate);
+
+      return {
+        isoDate,
+        label: formatIsoDateLabel(isoDate),
+        status: matchingReviewSegment?.status ?? "pending",
+        reviewedAt: matchingReviewSegment?.reviewedAt,
+        reviewedBy: matchingReviewSegment?.reviewedBy,
+      };
+    });
+}
+
 function getRequestWeekAnchor(request: TimeOffRequest) {
-  const normalized = normalizeTimeOffRequest(request);
+  const normalized = withResolvedAbsenceDates(request);
   return normalized.absenceStartDate || normalized.dateSubmitted;
 }
 
 function splitRequestAcrossWeeks(request: TimeOffRequest) {
-  const normalized = normalizeTimeOffRequest(request);
+  const normalized = withResolvedAbsenceDates(request);
   const startDate = toNoonDate(
     normalized.absenceStartDate || normalized.dateSubmitted,
   );
@@ -265,41 +365,11 @@ function splitRequestAcrossWeeks(request: TimeOffRequest) {
 }
 
 export function normalizeTimeOffRequest(request: TimeOffRequest): TimeOffRequest {
-  if (request.absenceStartDate) {
-    return {
-      ...request,
-      sourceRequestId: request.sourceRequestId ?? request.id,
-      status: deriveRequestStatus({
-        ...request,
-        sourceRequestId: request.sourceRequestId ?? request.id,
-      }),
-    };
-  }
-
-  const inferredDates = inferAbsenceDates(request);
-
-  if (!inferredDates) {
-    return {
-      ...request,
-      sourceRequestId: request.sourceRequestId ?? request.id,
-      status: deriveRequestStatus({
-        ...request,
-        sourceRequestId: request.sourceRequestId ?? request.id,
-      }),
-    };
-  }
+  const normalized = withResolvedAbsenceDates(request);
 
   return {
-    ...request,
-    sourceRequestId: request.sourceRequestId ?? request.id,
-    absenceStartDate: inferredDates.absenceStartDate,
-    absenceEndDate: inferredDates.absenceEndDate,
-    status: deriveRequestStatus({
-      ...request,
-      sourceRequestId: request.sourceRequestId ?? request.id,
-      absenceStartDate: inferredDates.absenceStartDate,
-      absenceEndDate: inferredDates.absenceEndDate,
-    }),
+    ...normalized,
+    status: deriveRequestStatus(normalized),
   };
 }
 
@@ -308,24 +378,63 @@ export function getCanonicalTimeOffRequestId(request: TimeOffRequest) {
 }
 
 function deriveRequestStatus(request: TimeOffRequest): TimeOffStatus {
-  const reviewSegments = request.reviewSegments ?? [];
+  const normalized = withResolvedAbsenceDates(request);
+  const requestDates = getRequestDates(normalized);
 
-  if (reviewSegments.length === 0) {
-    return request.status;
+  if (requestDates.length === 0) {
+    return normalized.status;
   }
 
-  const approvedCount = reviewSegments.filter(
-    (segment) => segment.status === "approved",
-  ).length;
-  const deniedCount = reviewSegments.filter(
-    (segment) => segment.status === "not_approved",
-  ).length;
+  const dayStatuses = requestDates.map(
+    (isoDate) => getReviewSegmentForDate(normalized, isoDate)?.status ?? "pending",
+  );
 
-  if (approvedCount === reviewSegments.length) {
+  if (dayStatuses.every((status) => status === "pending")) {
+    return "pending";
+  }
+
+  if (dayStatuses.some((status) => status === "pending")) {
+    return "pending";
+  }
+
+  if (dayStatuses.every((status) => status === "approved")) {
     return "approved";
   }
 
-  if (deniedCount === reviewSegments.length) {
+  if (dayStatuses.every((status) => status === "not_approved")) {
+    return "not_approved";
+  }
+
+  return "partial_approved";
+}
+
+function deriveSegmentStatus(
+  request: TimeOffRequest,
+  startDate: string,
+  endDate: string,
+): TimeOffStatus {
+  const normalized = withResolvedAbsenceDates(request);
+  const dayStatuses = getRequestReviewDays(normalized, { startDate, endDate }).map(
+    (reviewDay) => reviewDay.status,
+  );
+
+  if (dayStatuses.length === 0) {
+    return normalized.status;
+  }
+
+  if (dayStatuses.every((status) => status === "pending")) {
+    return "pending";
+  }
+
+  if (dayStatuses.some((status) => status === "pending")) {
+    return "pending";
+  }
+
+  if (dayStatuses.every((status) => status === "approved")) {
+    return "approved";
+  }
+
+  if (dayStatuses.every((status) => status === "not_approved")) {
     return "not_approved";
   }
 
@@ -440,6 +549,111 @@ function toIsoFromDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0)
     .toISOString()
     .slice(0, 10);
+}
+
+function getRequestDates(request: TimeOffRequest) {
+  const normalized = withResolvedAbsenceDates(request);
+  const startValue = normalized.absenceStartDate || normalized.dateSubmitted;
+  const endValue =
+    normalized.absenceEndDate ||
+    normalized.absenceStartDate ||
+    normalized.dateSubmitted;
+
+  if (!startValue || !endValue) {
+    return [];
+  }
+
+  const start = toNoonDate(startValue);
+  const end = toNoonDate(endValue);
+  const dates: string[] = [];
+  const cursor = new Date(start);
+
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(toIsoFromDate(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function withResolvedAbsenceDates(request: TimeOffRequest): TimeOffRequest {
+  const sourceRequestId = request.sourceRequestId ?? request.id;
+
+  if (request.absenceStartDate) {
+    return {
+      ...request,
+      sourceRequestId,
+    };
+  }
+
+  const inferredDates = inferAbsenceDates(request);
+
+  if (!inferredDates) {
+    return {
+      ...request,
+      sourceRequestId,
+    };
+  }
+
+  return {
+    ...request,
+    sourceRequestId,
+    absenceStartDate: inferredDates.absenceStartDate,
+    absenceEndDate: inferredDates.absenceEndDate,
+  };
+}
+
+function getReviewSegmentForDate(request: TimeOffRequest, isoDate: string) {
+  const reviewSegments = [...(request.reviewSegments ?? [])].sort((a, b) =>
+    a.reviewedAt.localeCompare(b.reviewedAt),
+  );
+
+  for (let index = reviewSegments.length - 1; index >= 0; index -= 1) {
+    const segment = reviewSegments[index];
+
+    if (segment.absenceStartDate <= isoDate && segment.absenceEndDate >= isoDate) {
+      return segment;
+    }
+  }
+
+  return undefined;
+}
+
+function formatIsoDateLabel(isoDate: string) {
+  const date = toNoonDate(isoDate);
+  return formatSegmentDateRange(date, date);
+}
+
+function collapseReviewedDateRanges(reviewDays: TimeOffReviewDay[]) {
+  if (reviewDays.length === 0) {
+    return [];
+  }
+
+  const sortedDays = [...reviewDays].sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+  const ranges: Array<{ start: string; end: string }> = [];
+
+  sortedDays.forEach((reviewDay) => {
+    const lastRange = ranges.at(-1);
+
+    if (!lastRange) {
+      ranges.push({ start: reviewDay.isoDate, end: reviewDay.isoDate });
+      return;
+    }
+
+    const previousDate = toNoonDate(lastRange.end);
+    previousDate.setDate(previousDate.getDate() + 1);
+
+    if (toIsoFromDate(previousDate) === reviewDay.isoDate) {
+      lastRange.end = reviewDay.isoDate;
+      return;
+    }
+
+    ranges.push({ start: reviewDay.isoDate, end: reviewDay.isoDate });
+  });
+
+  return ranges.map((range) =>
+    formatSegmentDateRange(toNoonDate(range.start), toNoonDate(range.end)),
+  );
 }
 
 function formatSegmentDateRange(start: Date, end: Date) {

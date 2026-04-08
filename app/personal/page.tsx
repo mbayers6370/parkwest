@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Check, CircleAlert, Square, SquareCheckBig, X } from "lucide-react";
+import { Check, ChevronRight, CircleAlert, Square, SquareCheckBig, X } from "lucide-react";
 import { OPEN_SHIFT_POSTS } from "@/lib/open-shifts";
 import {
   getAllAttendanceEvents,
@@ -75,7 +75,15 @@ type HomeScheduleDay = {
   startTime: string | null;
   endTime: string | null;
   startDateTime: string | null;
+  past: boolean;
 };
+
+function getLocalIsoDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function toTwentyFourHourTime(timeLabel: string) {
   const [timePart, meridiem] = timeLabel.split(" ");
@@ -186,6 +194,7 @@ export default function PersonalHomePage() {
     () => getCurrentWeekRange(currentDate),
     [currentDate],
   );
+  const todayIso = useMemo(() => getLocalIsoDate(currentDate), [currentDate]);
 
   const weekDays = useMemo<HomeScheduleDay[]>(() => {
     return getScheduleEntriesForEmployee(effectiveScheduleEntries, CURRENT_USER.displayName)
@@ -201,7 +210,7 @@ export default function PersonalHomePage() {
           off: entry.status !== "scheduled",
           dateIso: entry.shiftDate,
           num: String(Number(entry.shiftDate.slice(-2))),
-          today: entry.shiftDate === currentDate.toISOString().slice(0, 10),
+          today: entry.shiftDate === todayIso,
           monthShort: new Date(`${entry.shiftDate}T12:00:00`).toLocaleDateString("en-US", {
             month: "short",
           }),
@@ -210,9 +219,10 @@ export default function PersonalHomePage() {
           startTime,
           endTime,
           startDateTime: startTime ? `${entry.shiftDate}T${toTwentyFourHourTime(startTime)}` : null,
+          past: entry.shiftDate < todayIso,
         };
       });
-  }, [currentDate, effectiveScheduleEntries, weekEndIso, weekStartIso]);
+  }, [effectiveScheduleEntries, todayIso, weekEndIso, weekStartIso]);
 
   const nextShift = useMemo(() => {
     const futureShifts = getScheduleEntriesForEmployee(effectiveScheduleEntries, CURRENT_USER.displayName)
@@ -226,7 +236,7 @@ export default function PersonalHomePage() {
           off: false,
           dateIso: entry.shiftDate,
           num: String(Number(entry.shiftDate.slice(-2))),
-          today: entry.shiftDate === currentDate.toISOString().slice(0, 10),
+          today: entry.shiftDate === todayIso,
           monthShort: new Date(`${entry.shiftDate}T12:00:00`).toLocaleDateString("en-US", {
             month: "short",
           }),
@@ -235,6 +245,7 @@ export default function PersonalHomePage() {
           startTime,
           endTime,
           startDateTime: `${entry.shiftDate}T${toTwentyFourHourTime(startTime)}`,
+          past: entry.shiftDate < todayIso,
         } satisfies HomeScheduleDay;
       });
 
@@ -243,7 +254,7 @@ export default function PersonalHomePage() {
         (entry) => entry.startDateTime && new Date(entry.startDateTime).getTime() >= nowMs,
       ) ?? null
     );
-  }, [currentDate, effectiveScheduleEntries, nowMs]);
+  }, [effectiveScheduleEntries, nowMs, todayIso]);
 
   const hasAtLeastTwoHours = nextShift
     ? new Date(nextShift.startDateTime as string).getTime() - nowMs >= 2 * 60 * 60 * 1000
@@ -390,7 +401,7 @@ export default function PersonalHomePage() {
 
       {featuredCommunication ? (
         <section
-          className={`${shared.personalFullSpan} ${shared.personalSection} ${shared.personalPanel}`}
+          className={`${shared.personalFullSpan} ${shared.personalSection} ${shared.personalPanel} ${styles.communicationBannerPanel}`}
         >
           <div className={styles.communicationBanner}>
             <div>
@@ -418,9 +429,10 @@ export default function PersonalHomePage() {
           </div>
           <Link
             href="/personal/schedule"
-            className={`secondary-button ${shared.personalCardAction}`}
+            aria-label="Open full schedule"
+            className={styles.sectionArrowAction}
           >
-            Full Schedule
+            <ChevronRight size={18} strokeWidth={2.25} />
           </Link>
         </div>
 
@@ -448,6 +460,7 @@ export default function PersonalHomePage() {
                   className={[
                     styles.dateCell,
                     day.today ? styles.dateCellToday : "",
+                    day.past ? styles.dateCellPast : "",
                     day.off ? styles.dateCellOff : "",
                   ].filter(Boolean).join(" ")}
                   aria-label={`${day.name} ${day.num}, ${day.off ? "Off" : `${day.startTime} to ${day.endTime}`}`}
@@ -463,14 +476,6 @@ export default function PersonalHomePage() {
               ))}
             </div>
           </div>
-          <div className={shared.scheduleMobileFooter}>
-            <Link
-              href="/personal/schedule"
-              className={`primary-button ${shared.personalMobileAction}`}
-            >
-              Full Schedule
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -482,10 +487,11 @@ export default function PersonalHomePage() {
             <h2 className={shared.personalSectionTitle}>Shift Exchange</h2>
           </div>
           <Link
-            href="/personal/exchange"
-            className={`secondary-button ${shared.personalCardAction}`}
+            href="/personal/schedule#open-shifts"
+            aria-label="Open shift exchange"
+            className={styles.sectionArrowAction}
           >
-            Open Board
+            <ChevronRight size={18} strokeWidth={2.25} />
           </Link>
         </div>
 
@@ -503,14 +509,6 @@ export default function PersonalHomePage() {
               ))}
             </div>
           </div>
-          <div className={`${shared.pCardFooter} ${shared.personalMobileFooter}`}>
-            <Link
-              href="/personal/exchange"
-              className={`primary-button ${shared.personalMobileAction}`}
-            >
-              Open Board
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -523,9 +521,10 @@ export default function PersonalHomePage() {
           </div>
           <Link
             href="/personal/requests"
-            className={`secondary-button ${shared.personalCardAction}`}
+            aria-label="Open all requests"
+            className={styles.sectionArrowAction}
           >
-            View All
+            <ChevronRight size={18} strokeWidth={2.25} />
           </Link>
         </div>
 
@@ -563,21 +562,6 @@ export default function PersonalHomePage() {
                 </div>
               ))
             )}
-          </div>
-          <div className={shared.pCardFooter}>
-            <Link
-              href="/personal/requests"
-              className="primary-button"
-              style={{
-                width: "100%",
-                textAlign: "center",
-                display: "block",
-                minHeight: 44,
-                lineHeight: "20px",
-              }}
-            >
-              Request Time Off
-            </Link>
           </div>
         </div>
       </section>

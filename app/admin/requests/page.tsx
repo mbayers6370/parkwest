@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import {
+  getAdminTimeOffRequestDisplaySegments,
   getAllTimeOffRequests,
   getCanonicalTimeOffRequestId,
-  getTimeOffRequestDisplaySegments,
+  getRequestReviewDays,
+  getReviewedDateBreakdown,
   TIME_OFF_REASON_LABELS,
   TIME_OFF_STATUS_LABELS,
   TIME_OFF_WINDOW_LABELS,
@@ -21,12 +23,6 @@ import {
   TIME_OFF_REQUESTS_UPDATED_EVENT,
 } from "@/lib/time-off-request-store";
 import { EMPLOYEE_DEPARTMENT_OPTIONS } from "@/lib/employee-departments";
-
-const STATUS_CLASS = {
-  pending: "warning",
-  approved: "success",
-  not_approved: "danger",
-} as const;
 
 type EmployeeDirectoryEntry = {
   id: string;
@@ -127,7 +123,7 @@ export default function AdminRequestsPage() {
   const requestDisplaySegments = useMemo(
     () =>
       requestsWithDepartment.flatMap((request) =>
-        getTimeOffRequestDisplaySegments(request).map((segment) => ({
+        getAdminTimeOffRequestDisplaySegments(request).map((segment) => ({
           ...segment,
           departmentLabel: request.departmentLabel,
         })),
@@ -160,6 +156,8 @@ export default function AdminRequestsPage() {
 
   function updateRequestStatus(
     request: TimeOffRequest,
+    isoDate: string,
+    dateLabel: string,
     status: "approved" | "not_approved",
   ) {
     const requestId = getCanonicalTimeOffRequestId(request);
@@ -176,14 +174,10 @@ export default function AdminRequestsPage() {
 
     const reviewedAt = new Date().toISOString();
     const nextReviewSegment = {
-      id: `${requestId}-${request.absenceStartDate}-${request.absenceEndDate}`,
-      absenceStartDate: request.absenceStartDate ?? sourceRequest.absenceStartDate ?? sourceRequest.dateSubmitted,
-      absenceEndDate:
-        request.absenceEndDate ??
-        sourceRequest.absenceEndDate ??
-        sourceRequest.absenceStartDate ??
-        sourceRequest.dateSubmitted,
-      datesAbsent: request.datesAbsent,
+      id: `${requestId}-${isoDate}`,
+      absenceStartDate: isoDate,
+      absenceEndDate: isoDate,
+      datesAbsent: dateLabel,
       status,
       reviewedAt,
       reviewedBy: "Admin",
@@ -402,10 +396,20 @@ function RequestCard({
 }: {
   request: TimeOffRequest;
   employees: EmployeeDirectoryEntry[];
-  onUpdateStatus: (request: TimeOffRequest, status: "approved" | "not_approved") => void;
+  onUpdateStatus: (
+    request: TimeOffRequest,
+    isoDate: string,
+    dateLabel: string,
+    status: "approved" | "not_approved",
+  ) => void;
 }) {
   const showActions = request.status === "pending";
   const showPendingDetails = request.status === "pending";
+  const requestReviewDays = getRequestReviewDays(request, {
+    startDate: request.absenceStartDate,
+    endDate: request.absenceEndDate,
+  });
+  const reviewBreakdown = getReviewedDateBreakdown(request);
 
   return (
     <article className="admin-request-card">
@@ -451,6 +455,59 @@ function RequestCard({
         <p className="admin-request-explanation">{request.explanation}</p>
       ) : null}
 
+      {showActions ? (
+        <div className="admin-request-review-days">
+          <p className="admin-request-detail-label">Review Dates</p>
+          <div className="admin-request-review-day-list">
+            {requestReviewDays.map((reviewDay) => (
+              <div key={reviewDay.isoDate} className="admin-request-review-day">
+                <div>
+                  <p className="admin-request-detail-value">{reviewDay.label}</p>
+                  {reviewDay.reviewedAt ? (
+                    <p className="admin-request-review-day-meta">
+                      {TIME_OFF_STATUS_LABELS[reviewDay.status]} by {reviewDay.reviewedBy ?? "Admin"}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="admin-request-review-day-actions">
+                  <button
+                    className={`secondary-button${reviewDay.status === "not_approved" ? " active" : ""}`}
+                    type="button"
+                    onClick={() =>
+                      onUpdateStatus(request, reviewDay.isoDate, reviewDay.label, "not_approved")
+                    }
+                  >
+                    Not Approved
+                  </button>
+                  <button
+                    className={`primary-button${reviewDay.status === "approved" ? " active" : ""}`}
+                    type="button"
+                    onClick={() =>
+                      onUpdateStatus(request, reviewDay.isoDate, reviewDay.label, "approved")
+                    }
+                  >
+                    Approve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : request.status === "partial_approved" ? (
+        <div className="admin-request-partial-breakdown">
+          {reviewBreakdown.approved.length > 0 ? (
+            <p className="admin-request-explanation">
+              <strong>Approved:</strong> {reviewBreakdown.approved.join(", ")}
+            </p>
+          ) : null}
+          {reviewBreakdown.notApproved.length > 0 ? (
+            <p className="admin-request-explanation">
+              <strong>Not Approved:</strong> {reviewBreakdown.notApproved.join(", ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {request.reviewedAt ? (
         <p className="admin-request-review-meta">
           Reviewed {new Intl.DateTimeFormat("en-US", {
@@ -462,26 +519,6 @@ function RequestCard({
         </p>
       ) : null}
 
-      {showActions ? (
-        <div className="admin-request-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => onUpdateStatus(request, "not_approved")}
-            disabled={request.status === "not_approved"}
-          >
-            Not Approved
-          </button>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => onUpdateStatus(request, "approved")}
-            disabled={request.status === "approved"}
-          >
-            Approve
-          </button>
-        </div>
-      ) : null}
     </article>
   );
 }

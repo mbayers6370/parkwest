@@ -75,6 +75,20 @@
   border: 1px solid color-mix(in srgb, var(--gold) 26%, transparent);
 }
 
+.communicationBannerPanel {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--gold-light) 42%, var(--ivory-100)) 0%,
+      color-mix(in srgb, var(--gold) 24%, var(--ivory-100)) 52%,
+      color-mix(in srgb, var(--gold-dark) 16%, var(--ivory-100)) 100%
+    );
+  border-color: color-mix(in srgb, var(--gold-dark) 24%, transparent);
+  box-shadow:
+    0 1px 5px color-mix(in srgb, var(--charcoal-900) 4%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--ivory-100) 60%, transparent);
+}
+
 .communicationBanner {
   display: flex;
   align-items: center;
@@ -95,17 +109,26 @@
   margin: 0;
   font-size: var(--text-lg);
   font-weight: 800;
+  color: color-mix(in srgb, var(--charcoal-900) 88%, var(--gold-dark));
 }
 
 .communicationBannerCopy {
   margin: 8px 0 0;
   font-size: var(--text-sm-plus);
   line-height: 1.6;
-  color: var(--foreground-muted);
+  color: color-mix(in srgb, var(--charcoal-900) 72%, var(--gold-dark));
 }
 
 .communicationBannerAction {
   min-width: 132px;
+  border-color: color-mix(in srgb, var(--gold-dark) 46%, transparent);
+  background: color-mix(in srgb, var(--ivory-100) 70%, transparent);
+  color: var(--gold-dark);
+}
+
+.communicationBannerAction:hover {
+  background: color-mix(in srgb, var(--ivory-100) 84%, transparent);
+  border-color: color-mix(in srgb, var(--gold-dark) 58%, transparent);
 }
 
 /* ── Hero shift block ── */
@@ -213,7 +236,7 @@
 /* Month row */
 .monthRow {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -270,8 +293,12 @@
 }
 
 .dateCellToday {
-  background: color-mix(in srgb, var(--charcoal-900) 90%, transparent);
-  border-color: transparent;
+  background: color-mix(in srgb, var(--gold) 12%, var(--ivory-100));
+  border-color: color-mix(in srgb, var(--gold-dark) 20%, transparent);
+}
+
+.dateCellPast {
+  background: color-mix(in srgb, var(--charcoal-500) 6%, var(--ivory-100));
 }
 
 .dateCellNum {
@@ -290,11 +317,15 @@
 }
 
 .dateCellToday .dateCellNum {
-  color: var(--ivory-100);
+  color: var(--gold-dark);
 }
 
 .dateCellToday .dateCellName {
-  color: color-mix(in srgb, var(--ivory-100) 60%, transparent);
+  color: var(--gold-dark);
+}
+
+.dateCellToday .dateCellMeta {
+  color: var(--gold-dark);
 }
 
 .dateCellDot {
@@ -313,9 +344,27 @@
   flex-shrink: 0;
 }
 
-.dateCellOff .dateCellNum,
-.dateCellOff .dateCellName {
+.dateCellPast .dateCellNum,
+.dateCellPast .dateCellName {
   opacity: 0.4;
+}
+
+.dateCellToday .dateCellDot {
+  background: var(--gold-dark);
+}
+
+.dateCellToday .dateCellDotEmpty {
+  background: color-mix(in srgb, var(--gold-dark) 22%, transparent);
+}
+
+.dateCellPast .dateCellDot {
+  background: color-mix(in srgb, var(--charcoal-500) 28%, var(--ivory-100));
+}
+
+@media (min-width: 900px) {
+  .monthRow {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
 }
 
 /* Keep old names for anything referencing them */
@@ -431,10 +480,36 @@
 }
 
 .sectionHeaderRow {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap-card);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 38px;
+}
+
+.sectionArrowAction {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gold-dark) 42%, transparent);
+  background: color-mix(in srgb, var(--ivory-100) 78%, transparent);
+  color: var(--gold-dark);
+  text-decoration: none;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--charcoal-900) 4%, transparent);
+}
+
+.sectionArrowAction:hover {
+  background: color-mix(in srgb, var(--gold) 12%, var(--ivory-100));
+  border-color: color-mix(in srgb, var(--gold-dark) 54%, transparent);
 }
 
 .scheduleOverviewStrip {
@@ -671,11 +746,15 @@
   .communicationBannerAction {
     width: 100%;
   }
+
+  .sectionHeaderRow {
+    min-height: 38px;
+  }
 }
 
 @media (min-width: 900px) {
   .nextShiftCard {
-    width: min(100%, 640px);
+    width: 100%;
     --next-shift-pad-y: 28px;
     --next-shift-pad-x: 28px;
   }
@@ -689,7 +768,9 @@
   }
 
   .heroShiftBlock {
+    width: min(100%, 560px);
     padding: 18px 22px 18px;
+    margin: 0 auto;
   }
 
   .heroShiftMain {

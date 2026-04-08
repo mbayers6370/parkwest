@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   MessageSquareMore,
@@ -52,6 +53,7 @@ import {
 } from "@/lib/schedule-override-store";
 import { saveStoredSchedule } from "@/lib/mock-schedule-store";
 import shared from "../personal-shared.module.css";
+import exchangeStyles from "../exchange/exchange.module.css";
 import styles from "./schedule.module.css";
 
 const CURRENT_EMPLOYEE_NAME = "Matt";
@@ -73,16 +75,27 @@ const ACTION_OPTIONS = [
 
 type ActionType = (typeof ACTION_OPTIONS)[number]["id"];
 
+function getLocalIsoDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function PersonalSchedulePage() {
   const [storedAttendanceEvents, setStoredAttendanceEvents] = useState<AttendanceEvent[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
   const [giveawayRequests, setGiveawayRequests] = useState<ShiftGiveawayRequest[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string>("");
+  const [hasManualDaySelection, setHasManualDaySelection] = useState(false);
   const [selectedAction, setSelectedAction] = useState<ActionType>("giveaway");
   const [actionNote, setActionNote] = useState("");
   const [selectedDealerName, setSelectedDealerName] = useState("");
+  const [selectedPickupOwnerName, setSelectedPickupOwnerName] = useState("");
+  const [isOpenShiftsExpanded, setIsOpenShiftsExpanded] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+  const todayIso = useMemo(() => getLocalIsoDate(new Date()), []);
   const { weekStartIso, weekEndIso } = useMemo(() => getCurrentWeekRange(new Date()), []);
 
   useEffect(() => {
@@ -139,10 +152,11 @@ export default function PersonalSchedulePage() {
   );
 
   useEffect(() => {
-    if (!selectedDayId && scheduleRows[0]) {
-      setSelectedDayId(scheduleRows[0].id);
+    if (!hasManualDaySelection && scheduleRows.length > 0) {
+      const todayRow = scheduleRows.find((row) => row.shiftDate === todayIso);
+      setSelectedDayId((todayRow ?? scheduleRows[0]).id);
     }
-  }, [scheduleRows, selectedDayId]);
+  }, [hasManualDaySelection, scheduleRows, todayIso]);
 
   const weekAttendanceSummary = useMemo(() => {
     const employeeWeekEvents = getAllAttendanceEvents(storedAttendanceEvents).filter(
@@ -193,7 +207,11 @@ export default function PersonalSchedulePage() {
 
   const selectedDay =
     scheduleRows.find((row) => row.id === selectedDayId) ?? scheduleRows[0] ?? null;
+  const activeMonthIndex = selectedDay
+    ? new Date(`${selectedDay.shiftDate}T12:00:00`).getMonth()
+    : new Date(`${weekStartIso}T12:00:00`).getMonth();
   const isWorkingDay = selectedDay?.status === "scheduled";
+  const isOffDay = selectedDay?.status === "off" && selectedDay?.shiftTime === "OFF";
   const availableActions = isWorkingDay
     ? ACTION_OPTIONS
     : ACTION_OPTIONS.filter((action) => action.id === "problem");
@@ -241,6 +259,46 @@ export default function PersonalSchedulePage() {
   const selectedCandidate = selectedDayCandidates.find(
     (candidate) => candidate.name === selectedDealerName,
   );
+  const openShiftCandidates = useMemo(() => {
+    if (!selectedDay || !isOffDay) {
+      return [];
+    }
+
+    return effectiveScheduleEntries
+      .filter((entry) => entry.shiftDate === selectedDay.shiftDate)
+      .filter((entry) => entry.employeeName !== CURRENT_EMPLOYEE_NAME)
+      .filter((entry) => entry.status === "scheduled" && entry.shiftTime !== "OFF")
+      .map((entry) => {
+        const validation = validateShiftGiveawayRequest({
+          scheduleEntries: effectiveScheduleEntries,
+          requesterName: entry.employeeName,
+          targetDealerName: CURRENT_EMPLOYEE_NAME,
+          shiftDate: selectedDay.shiftDate,
+          requestKind: "giveaway",
+        });
+        const pendingRequest =
+          giveawayRequests.find(
+            (request) =>
+              request.status === "pending" &&
+              request.requestKind === "giveaway" &&
+              request.shiftDate === selectedDay.shiftDate &&
+              request.requesterName === entry.employeeName &&
+              request.targetDealerName === CURRENT_EMPLOYEE_NAME,
+          ) ?? null;
+
+        return {
+          id: entry.id,
+          employeeName: entry.employeeName,
+          shiftTime: entry.shiftTime,
+          dept: entry.dept,
+          validation,
+          pendingRequest,
+        };
+      });
+  }, [effectiveScheduleEntries, giveawayRequests, isOffDay, selectedDay]);
+  const selectedPickupCandidate = openShiftCandidates.find(
+    (candidate) => candidate.employeeName === selectedPickupOwnerName,
+  );
 
   const selectedDayRequest = useMemo(
     () =>
@@ -252,6 +310,18 @@ export default function PersonalSchedulePage() {
           request.status === "pending",
       ) ?? null,
     [giveawayRequests, selectedAction, selectedDay],
+  );
+  const selectedPickupRequest = useMemo(
+    () =>
+      giveawayRequests.find(
+        (request) =>
+          request.status === "pending" &&
+          request.requestKind === "giveaway" &&
+          request.shiftDate === selectedDay?.shiftDate &&
+          request.targetDealerName === CURRENT_EMPLOYEE_NAME &&
+          (selectedPickupOwnerName ? request.requesterName === selectedPickupOwnerName : true),
+      ) ?? null,
+    [giveawayRequests, selectedDay, selectedPickupOwnerName],
   );
   const currentEmployeeRole = useMemo(
     () =>
@@ -322,59 +392,117 @@ export default function PersonalSchedulePage() {
     window.setTimeout(() => setSubmitMessage(""), 4000);
   }
 
+  function handleSubmitPickupRequest() {
+    if (!selectedDay || !selectedPickupCandidate || !selectedPickupCandidate.validation.valid) {
+      return;
+    }
+
+    const approvalRoute = selectedPickupCandidate.validation.approvalRoute;
+    const nextRequest: ShiftGiveawayRequest = {
+      id: `giveaway-${Date.now()}`,
+      requestKind: "giveaway",
+      requesterName: selectedPickupCandidate.employeeName,
+      requesterRole: selectedPickupCandidate.validation.requesterRole,
+      targetDealerName: CURRENT_EMPLOYEE_NAME,
+      targetDealerRole: selectedPickupCandidate.validation.targetRole,
+      shiftDate: selectedDay.shiftDate,
+      shiftDayLabel: selectedDay.dayLabel,
+      requesterShiftTime: selectedPickupCandidate.shiftTime,
+      targetDealerShiftTime: selectedDay.shiftTime,
+      targetDealerStatus: "off",
+      approvalRoute,
+      note: actionNote.trim() || undefined,
+      status: approvalRoute === "automatic" ? "approved" : "pending",
+      submittedAt: new Date().toISOString(),
+      reviewedAt: approvalRoute === "automatic" ? new Date().toISOString() : undefined,
+      reviewedBy: approvalRoute === "automatic" ? "Automatic Floor Rule" : undefined,
+      validationSnapshot: {
+        submittedAtLeastFourHoursBefore:
+          selectedPickupCandidate.validation.submittedAtLeastFourHoursBefore,
+        targetDealerEligibleForRestWindow:
+          selectedPickupCandidate.validation.targetDealerEligibleForRestWindow,
+        restHoursBeforeShift: selectedPickupCandidate.validation.restHoursBeforeShift,
+        targetDealerAlreadyAtSixDays:
+          selectedPickupCandidate.validation.targetDealerAlreadyAtSixDays,
+      },
+    };
+
+    if (approvalRoute === "automatic") {
+      const nextScheduleEntries = applyApprovedGiveawayRequest(scheduleEntries, nextRequest);
+      setScheduleEntries(nextScheduleEntries);
+      saveStoredSchedule(nextScheduleEntries);
+    }
+
+    const nextRequests = [nextRequest, ...giveawayRequests];
+    setGiveawayRequests(nextRequests);
+    saveStoredShiftGiveawayRequests(nextRequests);
+    setSubmitMessage(
+      approvalRoute === "automatic"
+        ? "Pickup processed automatically."
+        : approvalRoute === "admin_only"
+          ? "Pickup request sent to admin."
+          : "Pickup request sent for floor and admin review.",
+    );
+    setSelectedPickupOwnerName("");
+    window.setTimeout(() => setSubmitMessage(""), 4000);
+  }
+
   return (
     <main className={shared.personalContent}>
       <div className={`${shared.personalColMain} ${styles.schedulePageMain}`}>
         <div className={`${shared.pCard} ${styles.scheduleWeekHeaderCard}`}>
-          <div className={shared.pCardHeader}>
-            <div>
-              <p className={shared.pCardTitle}>Week of April 12</p>
-            </div>
-            <div className={styles.scheduleWeekNav}>
-              <button className={`secondary-button ${styles.scheduleWeekNavButton}`} type="button">
-                <ChevronLeft size={16} strokeWidth={2} />
-                <span>Prev</span>
-              </button>
-              <button className={`secondary-button ${styles.scheduleWeekNavButton}`} type="button">
-                <span>Next</span>
-                <ChevronRight size={16} strokeWidth={2} />
-              </button>
+          <div className={`${shared.pCardHeader} ${styles.scheduleWeekHeaderInner}`}>
+            <div className={styles.scheduleWeekTitleBlock}>
+              <p className={shared.pCardEyebrow}>Schedule</p>
+              <p className={shared.pCardTitle}>Your Week</p>
             </div>
           </div>
-        </div>
-
-        <div className={styles.scheduleDayGrid}>
-          {scheduleRows.map((row) => {
-            const isSelected = row.id === selectedDayId;
-
-            return (
-              <button
-                key={row.id}
-                type="button"
-                className={`${styles.scheduleDayTile} ${row.status === "off" ? styles.scheduleDayTileOff : ""} ${isSelected ? styles.scheduleDayTileSelected : ""}`}
-                onClick={() => setSelectedDayId(row.id)}
-              >
-                <div className={styles.scheduleDayTileTop}>
-                  <div
-                    className={`${styles.scheduleDayBadge} ${row.status === "off" ? styles.scheduleDayBadgeOff : ""}`}
+          <div className={shared.pCardBody}>
+            <div className={styles.calendarStrip}>
+              <div className={styles.monthRow}>
+                {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((month, index) => (
+                  <span
+                    key={month}
+                    className={`${styles.monthPill} ${index === activeMonthIndex ? styles.monthPillActive : ""}`}
                   >
-                    <span className={styles.scheduleDayBadgeLabel}>{row.dayShort}</span>
-                    <span className={styles.scheduleDayBadgeNumber}>
-                      {row.shiftDate.slice(-2).replace(/^0/, "")}
-                    </span>
-                  </div>
-                  <span className={`badge ${STATUS_BADGE[row.status]?.cls ?? "gold"}`}>
-                    {STATUS_BADGE[row.status]?.label ?? row.status}
+                    {month}
                   </span>
-                </div>
-
-                <div className={styles.scheduleDayTileBody}>
-                  <p className={styles.scheduleDayTime}>{row.shiftTime}</p>
-                  <p className={styles.scheduleDayDept}>{row.dept || "No shift scheduled"}</p>
-                </div>
-              </button>
-            );
-          })}
+                ))}
+              </div>
+              <div className={styles.dateRow}>
+                {scheduleRows.map((row) => {
+                  const isSelected = row.id === selectedDayId;
+                  return (
+                    <button
+                      key={row.id}
+                      type="button"
+                      className={`${styles.dateCell} ${row.status !== "scheduled" ? styles.dateCellOff : ""} ${row.shiftDate < todayIso ? styles.dateCellPast : ""} ${row.shiftDate === todayIso ? styles.dateCellToday : ""} ${isSelected ? styles.dateCellSelected : ""}`}
+                      onClick={() => {
+                        setHasManualDaySelection(true);
+                        setSelectedDayId(row.id);
+                      }}
+                    >
+                      <span className={styles.dateCellNum}>
+                        {row.shiftDate.slice(-2).replace(/^0/, "")}
+                      </span>
+                      <span className={styles.dateCellName}>{row.dayShort}</span>
+                      <span className={row.status === "scheduled" ? styles.dateCellDot : styles.dateCellDotEmpty} />
+                    </button>
+                  );
+                })}
+              </div>
+              <div className={styles.scheduleWeekNav}>
+                <button className={`secondary-button ${styles.scheduleWeekNavButton}`} type="button">
+                  <ChevronLeft size={16} strokeWidth={2} />
+                  <span>Prev</span>
+                </button>
+                <button className={`secondary-button ${styles.scheduleWeekNavButton}`} type="button">
+                  <span>Next</span>
+                  <ChevronRight size={16} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {selectedDay && (
@@ -502,8 +630,8 @@ export default function PersonalSchedulePage() {
                       : "Add anything your manager or coworkers should know."
                   }
                   style={{ resize: "vertical" }}
-                />
-              </div>
+                  />
+                </div>
 
               <div className={styles.scheduleActionFooter}>
                 <div className={styles.scheduleActionHint}>
@@ -562,6 +690,95 @@ export default function PersonalSchedulePage() {
             </div>
           </div>
         )}
+
+        <div
+          id="open-shifts"
+          className={`${shared.pCard} ${styles.scheduleExchangeCard}`}
+        >
+          <div className={`${shared.pCardHeader} ${styles.scheduleExchangeHeader}`}>
+            <p className={shared.pCardTitle}>Open Shifts</p>
+            <button
+              type="button"
+              className={styles.scheduleExchangeToggle}
+              aria-expanded={isOpenShiftsExpanded}
+              aria-controls="open-shifts-body"
+              onClick={() => setIsOpenShiftsExpanded((current) => !current)}
+            >
+              {isOpenShiftsExpanded ? (
+                <ChevronDown size={18} strokeWidth={2.25} aria-hidden="true" />
+              ) : (
+                <ChevronRight size={18} strokeWidth={2.25} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+          {isOpenShiftsExpanded ? (
+            <div id="open-shifts-body" className={`${shared.pCardBody} ${styles.scheduleExchangeBody}`}>
+              {!isOffDay ? (
+                <div className="empty-state" style={{ padding: "20px 12px", textAlign: "center" }}>
+                  <p className="mini-title" style={{ marginBottom: 4 }}>
+                    Select an OFF day
+                  </p>
+                  <p className="mini-copy">
+                    Open shifts populate here only when your selected day is OFF.
+                  </p>
+                </div>
+              ) : openShiftCandidates.length === 0 ? (
+                <div className="empty-state" style={{ padding: "20px 12px", textAlign: "center" }}>
+                  <p className="mini-title" style={{ marginBottom: 4 }}>
+                    No open shifts available
+                  </p>
+                  <p className="mini-copy">
+                    There are no eligible scheduled shifts to pick up for this day.
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.schedulePickupPanel}>
+                  <div className={`${exchangeStyles.exchangeList} ${styles.scheduleExchangeList}`}>
+                    {openShiftCandidates.map((candidate) => {
+                      const isSelected = selectedPickupOwnerName === candidate.employeeName;
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          className={`${styles.schedulePickupRow} ${isSelected ? styles.schedulePickupRowSelected : ""}`}
+                          onClick={() => setSelectedPickupOwnerName(candidate.employeeName)}
+                        >
+                          <span className={styles.schedulePickupRowTitle}>{candidate.employeeName}</span>
+                          <span className={styles.schedulePickupRowMeta}>
+                            {candidate.shiftTime}
+                            {candidate.dept ? ` · ${candidate.dept}` : ""}
+                            {candidate.pendingRequest ? " · Pending" : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedPickupCandidate && !selectedPickupCandidate.validation.valid ? (
+                    <div className="notice-card info">
+                      <MessageSquareMore size={14} aria-hidden="true" />
+                      <div>
+                        <p className="notice-title">Cannot submit yet</p>
+                        <p className="notice-body">{selectedPickupCandidate.validation.message}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={
+                      !selectedPickupCandidate ||
+                      !selectedPickupCandidate.validation.valid ||
+                      Boolean(selectedPickupRequest)
+                    }
+                    onClick={handleSubmitPickupRequest}
+                  >
+                    {selectedPickupRequest ? "Request Pending" : "Request Pickup"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className={shared.personalColSide}>

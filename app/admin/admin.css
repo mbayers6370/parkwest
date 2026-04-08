@@ -1430,6 +1430,64 @@ button.admin-page-tab {
   color: var(--foreground-muted);
 }
 
+.admin-request-review-days {
+  margin-top: 16px;
+}
+
+.admin-request-review-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.admin-request-review-day {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 10%, var(--ivory-100));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ivory-100) 72%, transparent);
+}
+
+.admin-request-review-day-meta {
+  margin: 4px 0 0;
+  font-size: var(--text-xs);
+  color: var(--foreground-muted);
+}
+
+.admin-request-review-day-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(260px, 100%);
+}
+
+.admin-request-review-day-actions .primary-button,
+.admin-request-review-day-actions .secondary-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+}
+
+.admin-request-review-day-actions .secondary-button.active {
+  border-color: var(--danger-600);
+  color: var(--danger-700);
+}
+
+.admin-request-review-day-actions .primary-button.active {
+  border-color: var(--gold);
+  color: var(--gold-dark);
+}
+
+.admin-request-partial-breakdown {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+}
+
 .admin-request-actions {
   display: flex;
   justify-content: flex-end;
@@ -1802,6 +1860,15 @@ button.admin-page-tab {
   .admin-request-card-badges {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .admin-request-review-day {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-request-review-day-actions {
+    width: 100%;
   }
 
   .admin-request-detail-grid {

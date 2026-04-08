@@ -21,6 +21,7 @@ import {
 import { loadStoredAttendanceEvents } from "@/lib/attendance-event-store";
 import {
   applyApprovedGiveawayRequest,
+  SHIFT_REQUEST_KIND_LABELS,
   type ShiftGiveawayRequest,
 } from "@/lib/shift-giveaway-requests";
 import {
@@ -393,6 +394,72 @@ export default function AdminOverviewPage() {
                       {request.explanation ? (
                         <p className="admin-giveaway-note">{request.explanation}</p>
                       ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div>
+                <p className="admin-card-title">Shift Exchanges</p>
+                <p className="admin-card-subtitle">Pending giveaway and pickup requests</p>
+              </div>
+            </div>
+            <div className="admin-card-body">
+              {pendingGiveawayRequests.length === 0 ? (
+                <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
+                  <p className="mini-title" style={{ marginBottom: 6 }}>
+                    No pending shift exchanges
+                  </p>
+                  <p className="mini-copy">
+                    Shift giveaway and pickup requests will appear here for review.
+                  </p>
+                </div>
+              ) : (
+                <div className="admin-giveaway-list">
+                  {pendingGiveawayRequests.map((request) => (
+                    <div key={request.id} className="admin-giveaway-item">
+                      <div className="admin-giveaway-item-top">
+                        <div>
+                          <p className="admin-giveaway-title">
+                            {request.requesterName} → {request.targetDealerName}
+                          </p>
+                          <p className="admin-giveaway-meta">
+                            {SHIFT_REQUEST_KIND_LABELS[request.requestKind]} · {request.shiftDayLabel}
+                          </p>
+                        </div>
+                        <span className="badge warning">Pending</span>
+                      </div>
+                      <p className="admin-giveaway-copy">
+                        Shift: {request.requesterShiftTime}
+                      </p>
+                      <p className="admin-giveaway-copy">
+                        {request.targetDealerStatus === "off"
+                          ? `${request.targetDealerName} is OFF`
+                          : `${request.targetDealerName} currently has ${request.targetDealerShiftTime}`}
+                      </p>
+                      {request.note ? (
+                        <p className="admin-giveaway-note">{request.note}</p>
+                      ) : null}
+                      <div className="admin-giveaway-actions">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => updateGiveawayRequest(request.id, "denied")}
+                        >
+                          Deny
+                        </button>
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => updateGiveawayRequest(request.id, "approved")}
+                        >
+                          Approve
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

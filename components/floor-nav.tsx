@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
-  ClipboardList,
   Clock3,
 } from "lucide-react";
 import styles from "@/app/on-the-floor/floor.module.css";
@@ -13,19 +12,16 @@ import styles from "@/app/on-the-floor/floor.module.css";
 const ICONS = {
   now: Clock3,
   schedule: CalendarDays,
-  log: ClipboardList,
 };
 
 const BOTTOM_TABS = [
   { href: "/on-the-floor", label: "Now", icon: ICONS.now, exact: true },
   { href: "/on-the-floor/schedule", label: "Schedule", icon: ICONS.schedule },
-  { href: "/on-the-floor/log", label: "Attendance", icon: ICONS.log },
 ];
 
 const DESKTOP_TABS = [
   { href: "/on-the-floor", label: "Now", exact: true },
   { href: "/on-the-floor/schedule", label: "Schedule" },
-  { href: "/on-the-floor/log", label: "Attendance" },
 ];
 
 export function FloorNav() {

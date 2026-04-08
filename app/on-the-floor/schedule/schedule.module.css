@@ -1,6 +1,6 @@
 .floorContent {
   flex: 1;
-  padding: 22px 18px 100px;
+  padding: 22px 18px 24px;
   display: flex;
   flex-direction: column;
   gap: var(--gap-card);
@@ -92,19 +92,24 @@
 
 .floorScheduleSheet {
   width: min(100%, 1080px);
+  height: calc(100vh - 240px);
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 14px 36px color-mix(in srgb, var(--charcoal-900) 7%, transparent);
 }
 
 .floorScheduleSheetBody {
+  flex: 1;
+  min-height: 0;
   padding: 20px 22px 24px;
-  max-height: calc(100vh - 260px);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--ivory-100) 94%, transparent), var(--surface)),
     radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 8%, transparent), transparent 45%);
 }
 
 .floorScheduleMatrixWrap {
-  max-height: calc(100vh - 320px);
+  height: 100%;
+  min-height: 0;
   overflow: auto;
   padding-bottom: 12px;
   border: 1px solid color-mix(in srgb, var(--charcoal-500) 16%, var(--ivory-100));
@@ -286,6 +291,22 @@
   background: #e88767;
   border-color: #d86c49;
   color: #6f2d1c;
+}
+
+@media (max-width: 899px) {
+  .floorScheduleSheet {
+    height: auto;
+    display: block;
+  }
+
+  .floorScheduleSheetBody {
+    min-height: auto;
+  }
+
+  .floorScheduleMatrixWrap {
+    height: auto;
+    min-height: auto;
+  }
 }
 
 @media (min-width: 900px) {

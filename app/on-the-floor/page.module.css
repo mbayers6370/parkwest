@@ -153,6 +153,21 @@
   border-top: 1px solid color-mix(in srgb, var(--charcoal-500) 18%, var(--ivory-100));
 }
 
+@media (min-width: 900px) {
+  .shiftExpandedBody {
+    display: flex;
+    flex-direction: column;
+    height: 300px;
+    overflow: hidden;
+  }
+
+  .shiftDealerList {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
 .shiftDealerRow {
   display: flex;
   align-items: center;
@@ -174,6 +189,10 @@
 
 .floorScheduleBody {
   padding: 0;
+}
+
+.floorScheduleBodyScrollable {
+  padding-bottom: 14px;
 }
 
 .casinoClosed {
@@ -417,6 +436,13 @@
   line-height: 1.45;
 }
 
+.floorGiveawayActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .floorGiveawayEmpty {
   text-align: center;
   padding: 22px 12px 18px;
@@ -564,6 +590,18 @@
 
 .floorAttendanceSubmit {
   width: 100%;
+}
+
+.floorAttendanceFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 2px;
+  justify-content: center;
+}
+
+.floorAttendanceFilterPill {
+  min-width: 76px;
 }
 
 .floorAttendanceAlertList {
@@ -800,4 +838,11 @@
 .spinIcon {
   animation: spin 0.75s linear infinite;
   flex-shrink: 0;
+}
+
+@media (min-width: 900px) {
+  .floorScheduleBodyScrollable {
+    max-height: calc(100vh - 290px);
+    overflow: auto;
+  }
 }

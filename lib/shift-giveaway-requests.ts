@@ -289,14 +289,18 @@ export function validateShiftGiveawayRequest(args: {
     targetDealerName,
     requesterRange.start,
   );
+  const shiftWeekRange = getShiftWeekRange(shiftDate);
   const targetDealerScheduledDays = scheduleEntries.filter(
     (entry) =>
       entry.employeeName === targetDealerName &&
       entry.status === "scheduled" &&
       entry.shiftTime !== "OFF" &&
-      entry.shiftDate.slice(0, 7) === shiftDate.slice(0, 7),
+      entry.shiftDate >= shiftWeekRange.weekStartIso &&
+      entry.shiftDate <= shiftWeekRange.weekEndIso,
   ).length;
-  const targetDealerAlreadyAtSixDays = targetDealerScheduledDays >= 6;
+  const targetDealerProjectedDays =
+    targetDealerScheduledDays + (targetEntry.status === "scheduled" ? 0 : 1);
+  const targetDealerAlreadyAtSixDays = targetDealerProjectedDays > 6;
   const restHoursBeforeShift = lastWorkedEnd
     ? Number(
         ((requesterRange.start.getTime() - lastWorkedEnd.getTime()) /
@@ -388,6 +392,27 @@ export function validateShiftGiveawayRequest(args: {
     targetDealerEligibleForRestWindow,
     targetDealerAlreadyAtSixDays,
   };
+}
+
+function getShiftWeekRange(shiftDate: string) {
+  const date = new Date(`${shiftDate}T12:00:00`);
+  const daysFromSaturday = (date.getDay() + 1) % 7;
+  const weekStartDate = new Date(date);
+  weekStartDate.setDate(date.getDate() - daysFromSaturday);
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+  return {
+    weekStartIso: toIsoDate(weekStartDate),
+    weekEndIso: toIsoDate(weekEndDate),
+  };
+}
+
+function toIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function applyApprovedGiveawayRequest(

@@ -24,6 +24,8 @@ import {
   saveStoredAttendanceEvents,
 } from "@/lib/attendance-event-store";
 import {
+  loadStoredSchedule,
+  saveStoredSchedule,
   SCHEDULE_UPDATED_EVENT,
 } from "@/lib/mock-schedule-store";
 import { type ScheduleEntry } from "@/lib/mock-schedule";
@@ -37,9 +39,11 @@ import {
 } from "@/lib/mock-schedule";
 import {
   loadStoredShiftGiveawayRequests,
+  saveStoredShiftGiveawayRequests,
   SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
 } from "@/lib/shift-giveaway-request-store";
 import {
+  applyApprovedGiveawayRequest,
   SHIFT_REQUEST_KIND_LABELS,
   type ShiftGiveawayRequest,
 } from "@/lib/shift-giveaway-requests";
@@ -49,20 +53,24 @@ import {
   formatShiftStartOptionLabel,
   getScheduledDaysForWeek,
   getShiftStartLabel,
-  SCHEDULE_OVERRIDE_KIND_LABELS,
   SHIFT_START_OPTIONS,
   type ScheduleOverride,
-  type ScheduleOverrideKind,
 } from "@/lib/schedule-overrides";
 import {
   loadStoredScheduleOverrides,
   saveStoredScheduleOverrides,
   SCHEDULE_OVERRIDES_UPDATED_EVENT,
 } from "@/lib/schedule-override-store";
+import {
+  loadStoredSpecialtySchedule,
+  SPECIALTY_SCHEDULE_UPDATED_EVENT,
+  saveStoredSpecialtySchedule,
+} from "@/lib/specialty-schedule-store";
 import styles from "./page.module.css";
 
 // ─── Types ────────────────────────────────────────────────────
 type AttendanceStatus = "unset" | "late" | "absent" | "callout";
+type AttendanceLogFilter = "all" | "points" | "psl";
 
 type DealerEntry = {
   id: string;
@@ -82,6 +90,19 @@ type LineupState = {
   names: string[];
   source: "random.org" | "fallback" | "trivial";
   isShuffling: boolean;
+};
+
+type ScheduleAdjustmentMode =
+  | "start_time_change"
+  | "dealer_added"
+  | "floor_added"
+  | "chip_runner_added";
+
+const SCHEDULE_ADJUSTMENT_LABELS: Record<ScheduleAdjustmentMode, string> = {
+  start_time_change: "Change Start Time",
+  dealer_added: "Add Dealer",
+  floor_added: "Add Floor",
+  chip_runner_added: "Add Chip Runner",
 };
 
 const SHIFT_TEMPLATES: Array<{ label: string; hour: number }> = [
@@ -356,6 +377,8 @@ export default function OnTheFloorNowPage() {
     AttendanceEvent[]
   >([]);
   const [attendanceSearch, setAttendanceSearch] = useState("");
+  const [attendanceLogFilter, setAttendanceLogFilter] =
+    useState<AttendanceLogFilter>("all");
   const [selectedAttendanceDealerId, setSelectedAttendanceDealerId] =
     useState("");
   const [newAttendanceType, setNewAttendanceType] =
@@ -368,14 +391,32 @@ export default function OnTheFloorNowPage() {
   const [editAttendancePslHours, setEditAttendancePslHours] = useState<AttendancePslHours>(2);
   const [giveawayRequests, setGiveawayRequests] = useState<ShiftGiveawayRequest[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [specialtyScheduleEntries, setSpecialtyScheduleEntries] = useState<
+    Array<{
+      id: string;
+      employeeId: string;
+      employeeName: string;
+      departmentLabel: string;
+      shiftDate: string;
+      shiftTime: string;
+      status: "scheduled" | "off";
+    }>
+  >([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
   const [scheduleChangeType, setScheduleChangeType] =
-    useState<ScheduleOverrideKind>("start_time_change");
-  const [selectedScheduleEmployeeName, setSelectedScheduleEmployeeName] = useState("");
+    useState<ScheduleAdjustmentMode>("start_time_change");
+  const [selectedScheduleEmployeeId, setSelectedScheduleEmployeeId] = useState("");
   const [scheduleChangeSearch, setScheduleChangeSearch] = useState("");
   const [scheduleChangeStartLabel, setScheduleChangeStartLabel] = useState<(typeof SHIFT_START_OPTIONS)[number]>("7:45 AM");
   const [scheduleChangeNote, setScheduleChangeNote] = useState("");
   const [scheduleChangeMessage, setScheduleChangeMessage] = useState("");
+  const { date: operatingDate, isClosed } = getOperatingDay(now);
+  const dow       = operatingDate.getDay();
+  const isSunday  = dow === 0;
+  const dayLabel  = DAY_NAMES[dow];
+  const dateLabel = `${MONTH_NAMES[operatingDate.getMonth()]} ${operatingDate.getDate()}`;
+  const currentMinutes = getCurrentTimeMinutes(now);
+  const todayIso = toIsoDate(operatingDate);
 
   useEffect(() => {
     let timeout: number | undefined;
@@ -413,16 +454,21 @@ export default function OnTheFloorNowPage() {
     const syncScheduleOverrides = () => {
       setScheduleOverrides(loadStoredScheduleOverrides());
     };
+    const syncSpecialtySchedule = () => {
+      setSpecialtyScheduleEntries(loadStoredSpecialtySchedule(todayIso));
+    };
 
     syncAttendanceEvents();
     syncGiveawayRequests();
     syncScheduleEntries();
     syncScheduleOverrides();
+    syncSpecialtySchedule();
 
     window.addEventListener("storage", syncAttendanceEvents);
     window.addEventListener("storage", syncGiveawayRequests);
     window.addEventListener("storage", syncScheduleEntries);
     window.addEventListener("storage", syncScheduleOverrides);
+    window.addEventListener("storage", syncSpecialtySchedule);
     window.addEventListener(
       SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
       syncGiveawayRequests,
@@ -430,12 +476,14 @@ export default function OnTheFloorNowPage() {
     window.addEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
     window.addEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
     window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
+    window.addEventListener(SPECIALTY_SCHEDULE_UPDATED_EVENT, syncSpecialtySchedule);
 
     return () => {
       window.removeEventListener("storage", syncAttendanceEvents);
       window.removeEventListener("storage", syncGiveawayRequests);
       window.removeEventListener("storage", syncScheduleEntries);
       window.removeEventListener("storage", syncScheduleOverrides);
+      window.removeEventListener("storage", syncSpecialtySchedule);
       window.removeEventListener(
         SHIFT_GIVEAWAY_REQUESTS_UPDATED_EVENT,
         syncGiveawayRequests,
@@ -443,15 +491,9 @@ export default function OnTheFloorNowPage() {
       window.removeEventListener(SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
       window.removeEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncScheduleEntries);
       window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
+      window.removeEventListener(SPECIALTY_SCHEDULE_UPDATED_EVENT, syncSpecialtySchedule);
     };
-  }, []);
-  const { date: operatingDate, isClosed } = getOperatingDay(now);
-  const dow       = operatingDate.getDay();
-  const isSunday  = dow === 0;
-  const dayLabel  = DAY_NAMES[dow];
-  const dateLabel = `${MONTH_NAMES[operatingDate.getMonth()]} ${operatingDate.getDate()}`;
-  const currentMinutes = getCurrentTimeMinutes(now);
-  const todayIso = toIsoDate(operatingDate);
+  }, [todayIso]);
   const effectiveScheduleEntries = useMemo(
     () => applyScheduleOverrides(scheduleEntries, scheduleOverrides),
     [scheduleEntries, scheduleOverrides],
@@ -658,9 +700,34 @@ export default function OnTheFloorNowPage() {
         shiftLabel: slot.label,
         shiftStartTime: slot.label,
         shiftEndTime: getShiftEndLabel(slot.label),
+        departmentLabel: "Dealer",
       })),
     );
   }, [slots]);
+  const specialtyTeamMembers = useMemo(
+    () =>
+      specialtyScheduleEntries
+        .filter((entry) => entry.status === "scheduled")
+        .map((entry) => {
+          const [shiftStartTime, shiftEndTime] = entry.shiftTime
+            .split("–")
+            .map((part) => part.trim());
+
+          return {
+            id: entry.employeeId,
+            name: entry.employeeName,
+            shiftLabel: getShiftStartLabel(entry.shiftTime),
+            shiftStartTime,
+            shiftEndTime,
+            departmentLabel: entry.departmentLabel,
+          };
+        }),
+    [specialtyScheduleEntries],
+  );
+  const scheduledAttendanceMembers = useMemo(
+    () => [...scheduledDealers, ...specialtyTeamMembers],
+    [scheduledDealers, specialtyTeamMembers],
+  );
   const filteredScheduledDealers = useMemo(() => {
     const normalizedSearch = attendanceSearch.trim().toLowerCase();
 
@@ -668,22 +735,41 @@ export default function OnTheFloorNowPage() {
       return [];
     }
 
-    return scheduledDealers
+    return scheduledAttendanceMembers
       .filter((dealer) => dealer.name.toLowerCase().includes(normalizedSearch))
       .slice(0, 8);
-  }, [attendanceSearch, scheduledDealers]);
+  }, [attendanceSearch, scheduledAttendanceMembers]);
   const selectedAttendanceDealer = useMemo(
     () =>
-      scheduledDealers.find((dealer) => dealer.id === selectedAttendanceDealerId),
-    [scheduledDealers, selectedAttendanceDealerId],
+      scheduledAttendanceMembers.find((dealer) => dealer.id === selectedAttendanceDealerId),
+    [scheduledAttendanceMembers, selectedAttendanceDealerId],
   );
   const dealerNameSet = useMemo(
-    () => new Set(scheduledDealers.map((dealer) => dealer.name)),
-    [scheduledDealers],
+    () => new Set(scheduledAttendanceMembers.map((dealer) => dealer.name)),
+    [scheduledAttendanceMembers],
   );
   const dealerAttendanceEvents = useMemo(
     () => todayAttendanceEvents.filter((event) => dealerNameSet.has(event.employeeName)),
     [dealerNameSet, todayAttendanceEvents],
+  );
+  const filteredDealerAttendanceEvents = useMemo(
+    () =>
+      dealerAttendanceEvents.filter((event) => {
+        if (attendanceLogFilter === "all") {
+          return true;
+        }
+
+        if (attendanceLogFilter === "points") {
+          return event.eventType === "call_out_point" || event.eventType === "half_point";
+        }
+
+        return (
+          event.eventType === "call_out_psl" ||
+          event.eventType === "reverse_psl" ||
+          event.eventType === "psl_leave_early"
+        );
+      }),
+    [attendanceLogFilter, dealerAttendanceEvents],
   );
   const pendingGiveawayRequests = useMemo(
     () =>
@@ -693,14 +779,48 @@ export default function OnTheFloorNowPage() {
       ),
     [giveawayRequests],
   );
+
+  function updateFloorGiveawayRequest(requestId: string, status: "approved" | "denied") {
+    const request = giveawayRequests.find((entry) => entry.id === requestId);
+
+    if (!request) {
+      return;
+    }
+
+    if (status === "approved") {
+      const nextStoredSchedule = applyApprovedGiveawayRequest(loadStoredSchedule(), request);
+      saveStoredSchedule(nextStoredSchedule);
+    }
+
+    const nextRequests = giveawayRequests.map((entry) =>
+      entry.id !== requestId
+        ? entry
+        : {
+            ...entry,
+            status,
+            reviewedAt: new Date().toISOString(),
+            reviewedBy: "Floor",
+          },
+    );
+
+    setGiveawayRequests(nextRequests);
+    saveStoredShiftGiveawayRequests(nextRequests);
+  }
+
   const scheduleChangeCandidates = useMemo(() => {
-    const candidates = effectiveScheduleEntries
+    const dealerCandidates = effectiveScheduleEntries
       .filter((entry) => entry.shiftDate === todayIso)
-      .filter((entry) =>
-        scheduleChangeType === "start_time_change"
-          ? entry.status === "scheduled"
-          : entry.status === "off",
-      )
+      .filter((entry) => {
+        if (scheduleChangeType === "start_time_change") {
+          return entry.status === "scheduled";
+        }
+
+        if (scheduleChangeType === "dealer_added") {
+          return entry.status === "off";
+        }
+
+        return false;
+      })
       .filter((entry) => {
         if (scheduleChangeType !== "dealer_added") {
           return true;
@@ -740,10 +860,53 @@ export default function OnTheFloorNowPage() {
 
         return restHours >= 9.5;
       })
-      .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+      .map((entry) => ({
+        id: entry.id,
+        employeeId: entry.id,
+        employeeName: entry.employeeName,
+        shiftDate: entry.shiftDate,
+        shiftTime: entry.shiftTime,
+        departmentLabel: "Dealer",
+        source: "dealer" as const,
+      }));
 
-    return candidates;
-  }, [effectiveScheduleEntries, scheduleChangeStartLabel, scheduleChangeType, todayIso]);
+    const specialtyCandidates = specialtyScheduleEntries
+      .filter((entry) => entry.shiftDate === todayIso)
+      .filter((entry) => {
+        if (scheduleChangeType === "start_time_change") {
+          return entry.status === "scheduled";
+        }
+
+        if (scheduleChangeType === "floor_added") {
+          return entry.departmentLabel === "Floor" && entry.status === "off";
+        }
+
+        if (scheduleChangeType === "chip_runner_added") {
+          return entry.departmentLabel === "Chip Runner" && entry.status === "off";
+        }
+
+        return false;
+      })
+      .map((entry) => ({
+        id: entry.id,
+        employeeId: entry.employeeId,
+        employeeName: entry.employeeName,
+        shiftDate: entry.shiftDate,
+        shiftTime: entry.shiftTime,
+        departmentLabel: entry.departmentLabel,
+        source: "specialty" as const,
+      }));
+
+    return [...dealerCandidates, ...specialtyCandidates].sort((a, b) =>
+      a.employeeName.localeCompare(b.employeeName),
+    );
+  }, [
+    effectiveScheduleEntries,
+    scheduleChangeStartLabel,
+    scheduleChangeType,
+    specialtyScheduleEntries,
+    todayIso,
+  ]);
   const filteredScheduleChangeCandidates = useMemo(() => {
     const normalizedSearch = scheduleChangeSearch.trim().toLowerCase();
 
@@ -758,9 +921,9 @@ export default function OnTheFloorNowPage() {
   const selectedScheduleEntry = useMemo(
     () =>
       scheduleChangeCandidates.find(
-        (entry) => entry.employeeName === selectedScheduleEmployeeName,
+        (entry) => entry.employeeId === selectedScheduleEmployeeId,
       ) ?? null,
-    [scheduleChangeCandidates, selectedScheduleEmployeeName],
+    [scheduleChangeCandidates, selectedScheduleEmployeeId],
   );
   const availableScheduleStartOptions = useMemo(
     () =>
@@ -786,6 +949,10 @@ export default function OnTheFloorNowPage() {
   }, [availableScheduleStartOptions, scheduleChangeStartLabel]);
   const scheduleChangeSixDayFlag = useMemo(() => {
     if (!selectedScheduleEntry) {
+      return false;
+    }
+
+    if (selectedScheduleEntry.source !== "dealer") {
       return false;
     }
 
@@ -849,9 +1016,36 @@ export default function OnTheFloorNowPage() {
       return;
     }
 
+    if (selectedScheduleEntry.source === "specialty") {
+      const nextEntries = specialtyScheduleEntries.map((entry) =>
+        entry.employeeId !== selectedScheduleEntry.employeeId
+          ? entry
+          : {
+              ...entry,
+              shiftTime: nextShiftTime,
+              status: "scheduled" as const,
+            },
+      );
+
+      setSpecialtyScheduleEntries(nextEntries);
+      saveStoredSpecialtySchedule(todayIso, nextEntries);
+      setScheduleChangeMessage(
+        scheduleChangeType === "start_time_change"
+          ? "Start time updated for today’s schedule."
+          : `${selectedScheduleEntry.departmentLabel} added to today’s schedule.`,
+      );
+      setSelectedScheduleEmployeeId("");
+      setScheduleChangeSearch("");
+      setScheduleChangeStartLabel(availableScheduleStartOptions[0] ?? SHIFT_START_OPTIONS[0]);
+      setScheduleChangeNote("");
+      window.setTimeout(() => setScheduleChangeMessage(""), 4000);
+      return;
+    }
+
     const nextOverride: ScheduleOverride = {
       id: `schedule-override-${Date.now()}`,
-      kind: scheduleChangeType,
+      kind:
+        scheduleChangeType === "start_time_change" ? "start_time_change" : "dealer_added",
       employeeName: selectedScheduleEntry.employeeName,
       shiftDate: selectedScheduleEntry.shiftDate,
       previousShiftTime: selectedScheduleEntry.shiftTime,
@@ -870,7 +1064,7 @@ export default function OnTheFloorNowPage() {
         ? "Dealer added to today’s schedule."
         : "Start time updated for today’s schedule.",
     );
-    setSelectedScheduleEmployeeName("");
+    setSelectedScheduleEmployeeId("");
     setScheduleChangeSearch("");
     setScheduleChangeStartLabel(availableScheduleStartOptions[0] ?? SHIFT_START_OPTIONS[0]);
     setScheduleChangeNote("");
@@ -929,7 +1123,7 @@ export default function OnTheFloorNowPage() {
               />
             </button>
             {isExpanded && (
-              <>
+              <div className={styles.shiftExpandedBody}>
                 <ul className={styles.shiftDealerList} role="list">
                   {slot.dealers.map((dealer) => (
                     <li key={dealer.id} className={styles.shiftDealerRow}>
@@ -964,7 +1158,7 @@ export default function OnTheFloorNowPage() {
                     Randomize
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         );
@@ -987,7 +1181,7 @@ export default function OnTheFloorNowPage() {
                     </p>
                   </div>
                 </div>
-                <div className={`${styles.floorSectionBody} ${styles.floorScheduleBody}`}>
+                <div className={`${styles.floorSectionBody} ${styles.floorScheduleBody} ${styles.floorScheduleBodyScrollable}`}>
                   {shiftListContent}
                 </div>
               </div>
@@ -997,7 +1191,7 @@ export default function OnTheFloorNowPage() {
                   <div>
                     <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Attendance Reports</p>
                     <p className={`${styles.floorSectionSubtitle} ${styles.floorSectionSubtitleDrenched}`}>
-                      Search today&apos;s scheduled dealers and log leave-early changes.
+                      Search today&apos;s scheduled dealers, floor, and chip runners and log leave-early changes.
                     </p>
                   </div>
                 </div>
@@ -1005,7 +1199,7 @@ export default function OnTheFloorNowPage() {
               <div className={styles.floorAttendanceCreate}>
                 <div className="field-stack">
                   <label className="field-label" htmlFor="attendance-search">
-                    Search Scheduled Dealers
+                    Search Scheduled Team Members
                   </label>
                   <input
                     id="attendance-search"
@@ -1016,7 +1210,7 @@ export default function OnTheFloorNowPage() {
                       setAttendanceSearch(event.target.value);
                       setSelectedAttendanceDealerId("");
                     }}
-                    placeholder="Start typing a dealer name"
+                    placeholder="Start typing a name"
                     autoComplete="off"
                   />
                 </div>
@@ -1024,7 +1218,7 @@ export default function OnTheFloorNowPage() {
                   <div className={styles.floorAttendanceSearchResults}>
                     {filteredScheduledDealers.length === 0 ? (
                       <div className={styles.floorAttendanceNoResults}>
-                        No scheduled dealers match that search.
+                        No scheduled team members match that search.
                       </div>
                     ) : (
                       filteredScheduledDealers.map((dealer) => (
@@ -1045,7 +1239,7 @@ export default function OnTheFloorNowPage() {
                             {dealer.name}
                           </span>
                           <span className={styles.floorAttendanceResultMeta}>
-                            {dealer.shiftLabel} · {dealer.shiftStartTime} - {dealer.shiftEndTime}
+                            {dealer.departmentLabel} · {dealer.shiftStartTime} - {dealer.shiftEndTime}
                           </span>
                         </button>
                       ))
@@ -1127,18 +1321,57 @@ export default function OnTheFloorNowPage() {
                   Add Attendance Entry
                 </button>
               </div>
-                  {dealerAttendanceEvents.length === 0 ? (
+                  <div className={styles.floorAttendanceFilterRow}>
+                    <button
+                      type="button"
+                      className={cx(
+                        styles.floorPill,
+                        styles.floorAttendanceFilterPill,
+                        attendanceLogFilter === "all" && styles.floorPillActive,
+                      )}
+                      onClick={() => setAttendanceLogFilter("all")}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      className={cx(
+                        styles.floorPill,
+                        styles.floorAttendanceFilterPill,
+                        attendanceLogFilter === "points" && styles.floorPillActive,
+                      )}
+                      onClick={() => setAttendanceLogFilter("points")}
+                    >
+                      Points
+                    </button>
+                    <button
+                      type="button"
+                      className={cx(
+                        styles.floorPill,
+                        styles.floorAttendanceFilterPill,
+                        attendanceLogFilter === "psl" && styles.floorPillActive,
+                      )}
+                      onClick={() => setAttendanceLogFilter("psl")}
+                    >
+                      PSL
+                    </button>
+                  </div>
+                  {filteredDealerAttendanceEvents.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "28px 16px" }}>
                       <p className="mini-title" style={{ marginBottom: 6 }}>
-                        No attendance reports yet
+                        {dealerAttendanceEvents.length === 0
+                          ? "No attendance reports yet"
+                          : "No matching attendance reports"}
                       </p>
                       <p className="mini-copy">
-                        New floor attendance edits will appear here for admin reporting.
+                        {dealerAttendanceEvents.length === 0
+                          ? "New floor attendance edits will appear here for admin reporting."
+                          : "Try a different attendance filter to see more reports."}
                       </p>
                     </div>
                   ) : (
                     <div className={styles.floorAttendanceAlertList}>
-                      {dealerAttendanceEvents.map((event) => (
+                      {filteredDealerAttendanceEvents.map((event) => (
                         <div key={event.id} className={styles.floorAttendanceEditor}>
                           <div className={styles.floorAttendanceEditorTop}>
                             <div>
@@ -1230,6 +1463,22 @@ export default function OnTheFloorNowPage() {
                               week.
                             </p>
                           ) : null}
+                          <div className={styles.floorGiveawayActions}>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => updateFloorGiveawayRequest(request.id, "denied")}
+                            >
+                              Deny
+                            </button>
+                            <button
+                              type="button"
+                              className="primary-button"
+                              onClick={() => updateFloorGiveawayRequest(request.id, "approved")}
+                            >
+                              Approve
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1242,7 +1491,7 @@ export default function OnTheFloorNowPage() {
                   <div>
                     <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Schedule Adjustments</p>
                     <p className={`${styles.floorSectionSubtitle} ${styles.floorSectionSubtitleDrenched}`}>
-                      Change a start time or add a dealer to today&apos;s lineup.
+                      Change a start time or add a dealer, floor, or chip runner to today&apos;s lineup.
                     </p>
                   </div>
                 </div>
@@ -1250,34 +1499,56 @@ export default function OnTheFloorNowPage() {
                   <div className={`${styles.floorAttendanceCreate} ${styles.floorScheduleChangeForm}`}>
                     <div className="field-stack">
                       <span className="field-label">Change Type</span>
-                    <div className={styles.floorScheduleChangeTypeRow}>
-                      <button
-                        type="button"
-                        className={cx(
-                          styles.floorPill,
-                          styles.floorScheduleChangePill,
-                          scheduleChangeType === "start_time_change" && styles.floorPillActive,
-                        )}
-                        onClick={() => setScheduleChangeType("start_time_change")}
-                      >
-                        Change Start Time
-                      </button>
-                      <button
-                        type="button"
-                        className={cx(
-                          styles.floorPill,
-                          styles.floorScheduleChangePill,
-                          scheduleChangeType === "dealer_added" && styles.floorPillActive,
-                        )}
-                        onClick={() => setScheduleChangeType("dealer_added")}
-                      >
-                        Add Dealer
-                      </button>
-                    </div>
+                      <div className={styles.floorScheduleChangeTypeRow}>
+                        <button
+                          type="button"
+                          className={cx(
+                            styles.floorPill,
+                            styles.floorScheduleChangePill,
+                            scheduleChangeType === "start_time_change" && styles.floorPillActive,
+                          )}
+                          onClick={() => setScheduleChangeType("start_time_change")}
+                        >
+                          Change Start Time
+                        </button>
+                        <button
+                          type="button"
+                          className={cx(
+                            styles.floorPill,
+                            styles.floorScheduleChangePill,
+                            scheduleChangeType === "dealer_added" && styles.floorPillActive,
+                          )}
+                          onClick={() => setScheduleChangeType("dealer_added")}
+                        >
+                          Add Dealer
+                        </button>
+                        <button
+                          type="button"
+                          className={cx(
+                            styles.floorPill,
+                            styles.floorScheduleChangePill,
+                            scheduleChangeType === "floor_added" && styles.floorPillActive,
+                          )}
+                          onClick={() => setScheduleChangeType("floor_added")}
+                        >
+                          Add Floor
+                        </button>
+                        <button
+                          type="button"
+                          className={cx(
+                            styles.floorPill,
+                            styles.floorScheduleChangePill,
+                            scheduleChangeType === "chip_runner_added" && styles.floorPillActive,
+                          )}
+                          onClick={() => setScheduleChangeType("chip_runner_added")}
+                        >
+                          Add Chip Runner
+                        </button>
+                      </div>
                     </div>
                     <div className="field-stack">
                       <label className="field-label" htmlFor="schedule-change-start">
-                        {scheduleChangeType === "dealer_added" ? "Shift Time" : "New Start Time"}
+                        {scheduleChangeType === "start_time_change" ? "New Start Time" : "Shift Time"}
                       </label>
                       <select
                         id="schedule-change-start"
@@ -1299,7 +1570,13 @@ export default function OnTheFloorNowPage() {
 
                     <div className="field-stack">
                       <label className="field-label" htmlFor="schedule-change-search">
-                        {scheduleChangeType === "dealer_added" ? "Search Available Dealers" : "Search Scheduled Dealers"}
+                        {scheduleChangeType === "start_time_change"
+                          ? "Search Scheduled Team Members"
+                          : scheduleChangeType === "dealer_added"
+                            ? "Search Available Dealers"
+                            : scheduleChangeType === "floor_added"
+                              ? "Search Available Floor"
+                              : "Search Available Chip Runners"}
                       </label>
                       <input
                         id="schedule-change-search"
@@ -1308,12 +1585,16 @@ export default function OnTheFloorNowPage() {
                         value={scheduleChangeSearch}
                         onChange={(event) => {
                           setScheduleChangeSearch(event.target.value);
-                          setSelectedScheduleEmployeeName("");
+                          setSelectedScheduleEmployeeId("");
                         }}
                         placeholder={
-                          scheduleChangeType === "dealer_added"
-                            ? "Start typing an available dealer"
-                            : "Start typing a scheduled dealer"
+                          scheduleChangeType === "start_time_change"
+                            ? "Start typing a scheduled team member"
+                            : scheduleChangeType === "dealer_added"
+                              ? "Start typing an available dealer"
+                              : scheduleChangeType === "floor_added"
+                                ? "Start typing an available floor team member"
+                                : "Start typing an available chip runner"
                         }
                         autoComplete="off"
                       />
@@ -1323,9 +1604,13 @@ export default function OnTheFloorNowPage() {
                       <div className={styles.floorScheduleChangeResults}>
                         {filteredScheduleChangeCandidates.length === 0 ? (
                           <div className={styles.floorAttendanceNoResults}>
-                            {scheduleChangeType === "dealer_added"
-                              ? "No eligible off-day dealers match that search."
-                              : "No scheduled dealers match that search."}
+                            {scheduleChangeType === "start_time_change"
+                              ? "No scheduled team members match that search."
+                              : scheduleChangeType === "dealer_added"
+                                ? "No eligible off-day dealers match that search."
+                                : scheduleChangeType === "floor_added"
+                                  ? "No eligible off-day floor team members match that search."
+                                  : "No eligible off-day chip runners match that search."}
                           </div>
                         ) : (
                           filteredScheduleChangeCandidates.map((entry) => (
@@ -1334,11 +1619,11 @@ export default function OnTheFloorNowPage() {
                               type="button"
                               className={cx(
                                 styles.floorAttendanceResult,
-                                selectedScheduleEmployeeName === entry.employeeName &&
+                                selectedScheduleEmployeeId === entry.employeeId &&
                                   styles.floorAttendanceResultActive,
                               )}
                               onClick={() => {
-                                setSelectedScheduleEmployeeName(entry.employeeName);
+                                setSelectedScheduleEmployeeId(entry.employeeId);
                                 setScheduleChangeSearch(entry.employeeName);
                               }}
                             >
@@ -1346,7 +1631,7 @@ export default function OnTheFloorNowPage() {
                                 {entry.employeeName}
                               </span>
                               <span className={styles.floorAttendanceResultMeta}>
-                                {entry.shiftTime === "OFF" ? "Off today" : entry.shiftTime}
+                                {entry.departmentLabel} · {entry.shiftTime === "OFF" ? "Off today" : entry.shiftTime}
                               </span>
                             </button>
                           ))
@@ -1356,7 +1641,7 @@ export default function OnTheFloorNowPage() {
 
                     {selectedScheduleEntry ? (
                       <p className={styles.floorScheduleChangeMeta}>
-                        {scheduleChangeType === "dealer_added"
+                        {scheduleChangeType !== "start_time_change"
                           ? `Current status: ${selectedScheduleEntry.shiftTime}`
                           : `Current shift: ${selectedScheduleEntry.shiftTime}`}
                       </p>
@@ -1378,7 +1663,7 @@ export default function OnTheFloorNowPage() {
                         rows={3}
                         value={scheduleChangeNote}
                         onChange={(event) => setScheduleChangeNote(event.target.value)}
-                        placeholder="Add a quick note for admin and the dealer."
+                        placeholder="Add a quick note for admin and the team member."
                         style={{ resize: "vertical" }}
                       />
                     </div>
@@ -1389,7 +1674,7 @@ export default function OnTheFloorNowPage() {
                       disabled={!selectedScheduleEntry}
                       onClick={submitScheduleChange}
                     >
-                      {SCHEDULE_OVERRIDE_KIND_LABELS[scheduleChangeType]}
+                      {SCHEDULE_ADJUSTMENT_LABELS[scheduleChangeType]}
                     </button>
 
                     {scheduleChangeMessage ? (
