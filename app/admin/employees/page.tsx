@@ -1,5 +1,6 @@
 "use client";
 
+import "./employees.css";
 import { useState } from "react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import {

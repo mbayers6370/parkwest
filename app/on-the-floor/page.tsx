@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Check,
-  ChevronDown,
   Copy,
   LoaderCircle,
   Pencil,
@@ -66,7 +65,10 @@ import {
   SPECIALTY_SCHEDULE_UPDATED_EVENT,
   saveStoredSpecialtySchedule,
 } from "@/lib/specialty-schedule-store";
-import styles from "./page.module.css";
+import pageStyles from "./page.module.css";
+import sharedStyles from "./floor-shared.module.css";
+
+const styles = { ...sharedStyles, ...pageStyles };
 
 // ─── Types ────────────────────────────────────────────────────
 type AttendanceStatus = "unset" | "late" | "absent" | "callout";
@@ -504,9 +506,9 @@ export default function OnTheFloorNowPage() {
     [effectiveScheduleEntries, todayIso, isSunday]
   );
 
-  const [slots, setSlots]       = useState<ShiftSlot[]>(baseSlots);
-  const [expanded, setExpanded] = useState<number | null>(null);
-  const [lineup, setLineup]     = useState<LineupState | null>(null);
+  const [slots, setSlots] = useState<ShiftSlot[]>(baseSlots);
+  const [selectedSlotLabel, setSelectedSlotLabel] = useState("");
+  const [lineup, setLineup] = useState<LineupState | null>(null);
   // slotIdx the lineup belongs to, so we can reshuffle with fresh dealer statuses
   const [lineupSlotIdx, setLineupSlotIdx] = useState<number>(-1);
 
@@ -515,6 +517,34 @@ export default function OnTheFloorNowPage() {
   }, [baseSlots]);
 
   const currentIdx = useMemo(() => getCurrentShiftIdx(slots, currentMinutes), [slots, currentMinutes]);
+
+  useEffect(() => {
+    if (slots.length === 0) {
+      setSelectedSlotLabel("");
+      return;
+    }
+
+    setSelectedSlotLabel((current) => {
+      if (current && slots.some((slot) => slot.label === current)) {
+        return current;
+      }
+
+      const fallbackIndex =
+        currentIdx >= 0 && currentIdx < slots.length ? currentIdx : Math.max(slots.length - 1, 0);
+
+      return slots[fallbackIndex]?.label ?? slots[0].label;
+    });
+  }, [currentIdx, slots]);
+
+  const selectedSlotIdx = useMemo(
+    () => slots.findIndex((slot) => slot.label === selectedSlotLabel),
+    [selectedSlotLabel, slots],
+  );
+
+  const selectedSlot =
+    (selectedSlotIdx >= 0 ? slots[selectedSlotIdx] : null) ??
+    slots[0] ??
+    null;
 
   // ── Randomize ──
   const handleRandomize = useCallback(async (slotIdx: number) => {
@@ -1076,103 +1106,94 @@ export default function OnTheFloorNowPage() {
       <p className={styles.casinoClosedTitle}>Casino closed</p>
       <p className={styles.casinoClosedSub}>Opens at 10:30 AM</p>
     </div>
-  ) : (
-    <div className={styles.floorShiftList}>
-      {slots.map((slot, si) => {
-        const shiftStartMinutes = getShiftStartMinutes(slot.label);
-        const isPast    = shiftStartMinutes <= currentMinutes;
-        const isCurrent = si === currentIdx;
-        const isExpanded = expanded === si;
-        const shiftLate = slot.dealers.filter((d) => d.status === "late").length;
-        const shiftOut  = slot.dealers.filter((d) => d.status === "absent" || d.status === "callout").length;
-        const eligible  = slot.dealers.filter((d) => d.status === "unset" || d.status === "late").length;
-        return (
-          <div
-            key={slot.label}
-            className={cx(
-              styles.shiftSlotCard,
-              isCurrent && styles.shiftCurrent,
-              isPast && styles.shiftPast,
-            )}
-          >
-            <button
-              className={styles.shiftSlotHeader}
-              onClick={() => setExpanded(isExpanded ? null : si)}
-              type="button"
-              aria-expanded={isExpanded}
-            >
-              <div className={styles.shiftTimeCol}>
-                <span className={styles.shiftTimeLabel}>{slot.label}</span>
-                {isCurrent && <span className={styles.shiftNowPip} aria-hidden="true" />}
-              </div>
-              <div className={styles.shiftSummary}>
-                <span className={styles.shiftDealerCount}>
-                  {slot.dealers.length} dealer{slot.dealers.length !== 1 ? "s" : ""}
-                </span>
-                {(shiftLate > 0 || shiftOut > 0) && (
-                  <span className={styles.shiftIssueBadges}>
-                    {shiftLate > 0 && <span className="badge warning">{shiftLate} late</span>}
-                    {shiftOut  > 0 && <span className="badge danger">{shiftOut} out</span>}
-                  </span>
-                )}
-              </div>
-              <ChevronDown
-                className={cx(styles.shiftChevron, isExpanded && styles.shiftChevronOpen)}
-                size={16}
-                aria-hidden="true"
-              />
-            </button>
-            {isExpanded && (
-              <div className={styles.shiftExpandedBody}>
-                <ul className={styles.shiftDealerList} role="list">
-                  {slot.dealers.map((dealer) => (
-                    <li key={dealer.id} className={styles.shiftDealerRow}>
-                      <div className={styles.shiftDealerAvatar}>{dealer.initials}</div>
-                      <div className={styles.shiftDealerMeta}>
-                        <span className={styles.shiftDealerName}>{dealer.name}</span>
-                        {dealer.status !== "unset" && (
-                          <span className={`badge ${STATUS_BADGE[dealer.status]}`}>
-                            {STATUS_LABELS[dealer.status]}
-                          </span>
-                        )}
-                      </div>
-                      <div className={styles.shiftMarkBtns}>
-                        <button type="button"
-                          className={cx(styles.shiftMarkBtn, styles.shiftMarkBtnLate, dealer.status === "late" && styles.shiftMarkBtnLateActive)}
-                          onClick={() => markDealer(si, dealer.id, toggle(dealer.status, "late"))}>
-                          Late
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <div className={styles.shiftRandomizeBar}>
-                  <span className={styles.shiftRandomizeLabel}>{eligible} in the draw</span>
-                  <button
-                    type="button"
-                    className={styles.shiftLineupBtn}
-                    onClick={() => handleRandomize(si)}
-                    disabled={eligible === 0}
-                  >
-                    <Shuffle size={13} aria-hidden="true" />
-                    Randomize
-                  </button>
-                </div>
-              </div>
-            )}
+  ) : selectedSlot ? (
+    (() => {
+      const eligible = selectedSlot.dealers.filter(
+        (d) => d.status === "unset" || d.status === "late",
+      ).length;
+
+      return (
+        <div className={styles.floorShiftCard}>
+          <div className={styles.floorShiftCardTop}>
+            <div className="field-stack">
+              <label className="field-label" htmlFor="floor-shift-time-select">
+                Shift Time
+              </label>
+              <select
+                id="floor-shift-time-select"
+                className={`text-input app-select-input ${styles.shiftTimeSelect}`}
+                value={selectedSlot.label}
+                onChange={(event) => setSelectedSlotLabel(event.target.value)}
+              >
+                {slots.map((slot, index) => (
+                  <option key={slot.label} value={slot.label}>
+                    {slot.label}
+                    {` • ${slot.dealers.length} dealer${slot.dealers.length !== 1 ? "s" : ""}`}
+                    {index === currentIdx ? " • Current" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        );
-      })}
-    </div>
-  );
+
+          <div className={styles.shiftExpandedBody}>
+            <ul className={styles.shiftDealerList} role="list">
+              {selectedSlot.dealers.map((dealer) => (
+                <li key={dealer.id} className={styles.shiftDealerRow}>
+                  <div className={styles.shiftDealerAvatar}>{dealer.initials}</div>
+                  <div className={styles.shiftDealerMeta}>
+                    <span className={styles.shiftDealerName}>{dealer.name}</span>
+                    {dealer.status !== "unset" ? (
+                      <span className={`badge ${STATUS_BADGE[dealer.status]}`}>
+                        {STATUS_LABELS[dealer.status]}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className={styles.shiftMarkBtns}>
+                    <button
+                      type="button"
+                      className={cx(
+                        styles.shiftMarkBtn,
+                        styles.shiftMarkBtnLate,
+                        dealer.status === "late" && styles.shiftMarkBtnLateActive,
+                      )}
+                      onClick={() =>
+                        markDealer(selectedSlotIdx, dealer.id, toggle(dealer.status, "late"))
+                      }
+                    >
+                      Late
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className={styles.shiftRandomizeBar}>
+              <span className={styles.shiftRandomizeLabel}>{eligible} in the draw</span>
+              <button
+                type="button"
+                className={styles.shiftLineupBtn}
+                onClick={() => handleRandomize(selectedSlotIdx)}
+                disabled={eligible === 0}
+              >
+                <Shuffle size={13} aria-hidden="true" />
+                Randomize
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()
+  ) : null;
 
   return (
     <>
       <main className={styles.floorContent}>
         <div className={styles.floorNowLayout}>
           <div className={styles.floorDesktopGrid}>
-            <div className={styles.floorDesktopMain}>
-              <div className={`${styles.floorSection} ${styles.floorSectionDrenched}`}>
+            <div className={styles.floorTopGrid}>
+              <div
+                className={`${styles.floorSection} ${styles.floorSectionDrenched} ${styles.floorTopCard}`}
+              >
                 <div className={`${styles.floorSectionHeader} ${styles.floorSectionHeaderDrenched}`}>
                   <div>
                     <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>{dayLabel}</p>
@@ -1181,12 +1202,15 @@ export default function OnTheFloorNowPage() {
                     </p>
                   </div>
                 </div>
-                <div className={`${styles.floorSectionBody} ${styles.floorScheduleBody} ${styles.floorScheduleBodyScrollable}`}>
-                  {shiftListContent}
-                </div>
-              </div>
-
-              <div className={`${styles.floorSection} ${styles.floorSectionDrenched}`}>
+	              <div
+                  className={`${styles.floorSectionBody} ${styles.floorScheduleBody} ${styles.floorScheduleBodyScrollable} ${styles.floorTopCardBody}`}
+                >
+	                  {shiftListContent}
+	                </div>
+		              </div>
+	              <div
+                  className={`${styles.floorSection} ${styles.floorSectionDrenched} ${styles.floorTopCard}`}
+                >
                 <div className={`${styles.floorSectionHeader} ${styles.floorSectionHeaderDrenched}`}>
                   <div>
                     <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Attendance Reports</p>
@@ -1195,132 +1219,132 @@ export default function OnTheFloorNowPage() {
                     </p>
                   </div>
                 </div>
-                <div className={styles.floorSectionBody}>
-              <div className={styles.floorAttendanceCreate}>
-                <div className="field-stack">
-                  <label className="field-label" htmlFor="attendance-search">
-                    Search Scheduled Team Members
-                  </label>
-                  <input
-                    id="attendance-search"
-                    className="text-input"
-                    type="text"
-                    value={attendanceSearch}
-                    onChange={(event) => {
-                      setAttendanceSearch(event.target.value);
-                      setSelectedAttendanceDealerId("");
-                    }}
-                    placeholder="Start typing a name"
-                    autoComplete="off"
-                  />
-                </div>
-                {attendanceSearch.trim() ? (
-                  <div className={styles.floorAttendanceSearchResults}>
-                    {filteredScheduledDealers.length === 0 ? (
-                      <div className={styles.floorAttendanceNoResults}>
-                        No scheduled team members match that search.
-                      </div>
-                    ) : (
-                      filteredScheduledDealers.map((dealer) => (
-                        <button
-                          key={dealer.id}
-                          type="button"
-                          className={cx(
-                            styles.floorAttendanceResult,
-                            selectedAttendanceDealerId === dealer.id &&
-                              styles.floorAttendanceResultActive,
-                          )}
-                          onClick={() => {
-                            setSelectedAttendanceDealerId(dealer.id);
-                            setAttendanceSearch(dealer.name);
-                          }}
-                        >
-                          <span className={styles.floorAttendanceResultName}>
-                            {dealer.name}
-                          </span>
-                          <span className={styles.floorAttendanceResultMeta}>
-                            {dealer.departmentLabel} · {dealer.shiftStartTime} - {dealer.shiftEndTime}
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                ) : null}
-                <div className={styles.floorAttendanceCreateGrid}>
-                  <div className="field-stack">
-                    <span className="field-label">Attendance Type</span>
-                    <div className={styles.floorAttendanceTypeRow}>
-                      <button
-                        type="button"
-                        className={cx(
-                          styles.floorPill,
-                          styles.floorAttendanceChip,
-                          newAttendanceType === "call_out_point" &&
-                            styles.floorPillActive,
-                        )}
-                        onClick={() => setNewAttendanceType("call_out_point")}
-                      >
-                        Call Out - 1 Point
-                      </button>
-                      <button
-                        type="button"
-                        className={cx(
-                          styles.floorPill,
-                          styles.floorAttendanceChip,
-                          newAttendanceType === "half_point" &&
-                            styles.floorPillHalfPointActive,
-                        )}
-                        onClick={() => setNewAttendanceType("half_point")}
-                      >
-                        Half Point
-                      </button>
-                      <button
-                        type="button"
-                        className={cx(
-                          styles.floorPill,
-                          styles.floorAttendanceChip,
-                          newAttendanceType === "psl_leave_early" &&
-                            styles.floorPillActive,
-                        )}
-                        onClick={() => setNewAttendanceType("psl_leave_early")}
-                      >
-                        PSL Leave Early
-                      </button>
-                    </div>
-                  </div>
-                  {getAllowedPslHours(newAttendanceType).length > 0 ? (
-                    <div className={`field-stack ${styles.floorAttendanceHoursField}`}>
-                      <label className="field-label" htmlFor="attendance-psl-hours">
-                        PSL Hours
+                <div className={`${styles.floorSectionBody} ${styles.floorTopCardBody}`}>
+                  <div className={styles.floorAttendanceCreate}>
+                    <div className="field-stack">
+                      <label className="field-label" htmlFor="attendance-search">
+                        Search Scheduled Team Members
                       </label>
-                      <select
-                        id="attendance-psl-hours"
-                        className={`text-input ${styles.floorAttendanceHoursInput}`}
-                        value={newAttendancePslHours}
-                        onChange={(event) =>
-                          setNewAttendancePslHours(
-                            Number(event.target.value) as AttendancePslHours,
-                          )
-                        }
-                      >
-                        {getAllowedPslHours(newAttendanceType).map((hours) => (
-                          <option key={hours} value={hours}>
-                            {hours} Hours
-                          </option>
-                        ))}
-                      </select>
+                      <input
+                        id="attendance-search"
+                        className="text-input"
+                        type="text"
+                        value={attendanceSearch}
+                        onChange={(event) => {
+                          setAttendanceSearch(event.target.value);
+                          setSelectedAttendanceDealerId("");
+                        }}
+                        placeholder="Start typing a name"
+                        autoComplete="off"
+                      />
                     </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  className={`primary-button ${styles.floorAttendanceSubmit}`}
-                  disabled={!selectedAttendanceDealer}
-                  onClick={submitFloorAttendance}
-                >
-                  Add Attendance Entry
-                </button>
-              </div>
+                    {attendanceSearch.trim() ? (
+                      <div className={styles.floorAttendanceSearchResults}>
+                        {filteredScheduledDealers.length === 0 ? (
+                          <div className={styles.floorAttendanceNoResults}>
+                            No scheduled team members match that search.
+                          </div>
+                        ) : (
+                          filteredScheduledDealers.map((dealer) => (
+                            <button
+                              key={dealer.id}
+                              type="button"
+                              className={cx(
+                                styles.floorAttendanceResult,
+                                selectedAttendanceDealerId === dealer.id &&
+                                  styles.floorAttendanceResultActive,
+                              )}
+                              onClick={() => {
+                                setSelectedAttendanceDealerId(dealer.id);
+                                setAttendanceSearch(dealer.name);
+                              }}
+                            >
+                              <span className={styles.floorAttendanceResultName}>
+                                {dealer.name}
+                              </span>
+                              <span className={styles.floorAttendanceResultMeta}>
+                                {dealer.departmentLabel} · {dealer.shiftStartTime} - {dealer.shiftEndTime}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : null}
+                    <div className={styles.floorAttendanceCreateGrid}>
+                      <div className="field-stack">
+                        <span className="field-label">Attendance Type</span>
+                        <div className={styles.floorAttendanceTypeRow}>
+                          <button
+                            type="button"
+                            className={cx(
+                              styles.floorPill,
+                              styles.floorAttendanceChip,
+                              newAttendanceType === "call_out_point" &&
+                                styles.floorPillActive,
+                            )}
+                            onClick={() => setNewAttendanceType("call_out_point")}
+                          >
+                            Call Out - 1 Point
+                          </button>
+                          <button
+                            type="button"
+                            className={cx(
+                              styles.floorPill,
+                              styles.floorAttendanceChip,
+                              newAttendanceType === "half_point" &&
+                                styles.floorPillHalfPointActive,
+                            )}
+                            onClick={() => setNewAttendanceType("half_point")}
+                          >
+                            Half Point
+                          </button>
+                          <button
+                            type="button"
+                            className={cx(
+                              styles.floorPill,
+                              styles.floorAttendanceChip,
+                              newAttendanceType === "psl_leave_early" &&
+                                styles.floorPillActive,
+                            )}
+                            onClick={() => setNewAttendanceType("psl_leave_early")}
+                          >
+                            PSL Leave Early
+                          </button>
+                        </div>
+                      </div>
+                      {getAllowedPslHours(newAttendanceType).length > 0 ? (
+                        <div className={`field-stack ${styles.floorAttendanceHoursField}`}>
+                          <label className="field-label" htmlFor="attendance-psl-hours">
+                            PSL Hours
+                          </label>
+                          <select
+                            id="attendance-psl-hours"
+                            className={`text-input app-select-input ${styles.floorAttendanceHoursInput}`}
+                            value={newAttendancePslHours}
+                            onChange={(event) =>
+                              setNewAttendancePslHours(
+                                Number(event.target.value) as AttendancePslHours,
+                              )
+                            }
+                          >
+                            {getAllowedPslHours(newAttendanceType).map((hours) => (
+                              <option key={hours} value={hours}>
+                                {hours} Hours
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className={`primary-button ${styles.floorAttendanceSubmit}`}
+                      disabled={!selectedAttendanceDealer}
+                      onClick={submitFloorAttendance}
+                    >
+                      Add Attendance Entry
+                    </button>
+                  </div>
                   <div className={styles.floorAttendanceFilterRow}>
                     <button
                       type="button"
@@ -1356,70 +1380,70 @@ export default function OnTheFloorNowPage() {
                       PSL
                     </button>
                   </div>
-                  {filteredDealerAttendanceEvents.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "28px 16px" }}>
-                      <p className="mini-title" style={{ marginBottom: 6 }}>
-                        {dealerAttendanceEvents.length === 0
-                          ? "No attendance reports yet"
-                          : "No matching attendance reports"}
-                      </p>
-                      <p className="mini-copy">
-                        {dealerAttendanceEvents.length === 0
-                          ? "New floor attendance edits will appear here for admin reporting."
-                          : "Try a different attendance filter to see more reports."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className={styles.floorAttendanceAlertList}>
-                      {filteredDealerAttendanceEvents.map((event) => (
-                        <div key={event.id} className={styles.floorAttendanceEditor}>
-                          <div className={styles.floorAttendanceEditorTop}>
-                            <div>
-                              <p className={styles.floorAttendanceEditorName}>{event.employeeName}</p>
-                              <p className={styles.floorAttendanceEditorMeta}>
-                                {event.shiftStartTime} · {getAttendanceActionLabel(event)}
-                                {event.pslHours ? ` · ${event.pslHours} Hours` : ""}
-                              </p>
-                            </div>
-                            <div className={styles.floorAttendanceEditorActions}>
-                              <button
-                                type="button"
-                                className={`${styles.floorAttendanceDismiss} ${styles.floorAttendanceEdit}`}
-                                aria-label={`Edit ${event.employeeName} attendance report`}
-                                onClick={() => {
-                                  setPendingEditEventId(event.id);
-                                  setEditAttendanceType(event.eventType);
-                                  setEditAttendancePslHours(
-                                    sanitizeAttendancePslHours(
-                                      event.eventType,
-                                      event.pslHours,
-                                    ) ?? 2,
-                                  );
-                                }}
-                              >
-                                <Pencil size={14} aria-hidden="true" />
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.floorAttendanceDismiss}
-                                aria-label={`Remove ${event.employeeName} attendance report`}
-                                onClick={() => setPendingClearEventId(event.id)}
-                              >
-                                <X size={14} aria-hidden="true" />
-                              </button>
+                  <div className={styles.floorAttendanceReportCard}>
+                    {filteredDealerAttendanceEvents.length === 0 ? (
+                      <div className={styles.floorAttendanceEmptyState}>
+                        <p className="mini-title" style={{ marginBottom: 6 }}>
+                          {dealerAttendanceEvents.length === 0
+                            ? "No attendance reports yet"
+                            : "No matching attendance reports"}
+                        </p>
+                        <p className="mini-copy">
+                          {dealerAttendanceEvents.length === 0
+                            ? "New floor attendance edits will appear here for admin reporting."
+                            : "Try a different attendance filter to see more reports."}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className={styles.floorAttendanceAlertList}>
+                        {filteredDealerAttendanceEvents.map((event) => (
+                          <div key={event.id} className={styles.floorAttendanceEditor}>
+                            <div className={styles.floorAttendanceEditorTop}>
+                              <div>
+                                <p className={styles.floorAttendanceEditorName}>{event.employeeName}</p>
+                                <p className={styles.floorAttendanceEditorMeta}>
+                                  {event.shiftStartTime} · {getAttendanceActionLabel(event)}
+                                  {event.pslHours ? ` · ${event.pslHours} Hours` : ""}
+                                </p>
+                              </div>
+                              <div className={styles.floorAttendanceEditorActions}>
+                                <button
+                                  type="button"
+                                  className={`${styles.floorAttendanceDismiss} ${styles.floorAttendanceEdit}`}
+                                  aria-label={`Edit ${event.employeeName} attendance report`}
+                                  onClick={() => {
+                                    setPendingEditEventId(event.id);
+                                    setEditAttendanceType(event.eventType);
+                                    setEditAttendancePslHours(
+                                      sanitizeAttendancePslHours(
+                                        event.eventType,
+                                        event.pslHours,
+                                      ) ?? 2,
+                                    );
+                                  }}
+                                >
+                                  <Pencil size={14} aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.floorAttendanceDismiss}
+                                  aria-label={`Remove ${event.employeeName} attendance report`}
+                                  onClick={() => setPendingClearEventId(event.id)}
+                                >
+                                  <X size={14} aria-hidden="true" />
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+	              </div>
               </div>
-
-            </div>
-
-            <div className={styles.floorDesktopSide}>
-              <div className={`${styles.floorSection} ${styles.floorSectionDrenched} ${styles.floorGiveawayRail}`}>
+              <div className={styles.floorFullStack}>
+	              <div className={`${styles.floorSection} ${styles.floorSectionDrenched} ${styles.floorGiveawayRail}`}>
                 <div className={`${styles.floorSectionHeader} ${styles.floorSectionHeaderDrenched}`}>
                   <div>
                     <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Shift Exchanges</p>
@@ -1552,7 +1576,7 @@ export default function OnTheFloorNowPage() {
                       </label>
                       <select
                         id="schedule-change-start"
-                        className="text-input"
+                        className="text-input app-select-input"
                         value={scheduleChangeStartLabel}
                         onChange={(event) =>
                           setScheduleChangeStartLabel(
@@ -1842,7 +1866,7 @@ export default function OnTheFloorNowPage() {
                   </label>
                   <select
                     id="attendance-edit-psl-hours"
-                    className={`text-input ${styles.floorAttendanceHoursInput}`}
+                    className={`text-input app-select-input ${styles.floorAttendanceHoursInput}`}
                     value={editAttendancePslHours}
                     onChange={(event) =>
                       setEditAttendancePslHours(

@@ -53,8 +53,11 @@ import {
 } from "@/lib/schedule-override-store";
 import { saveStoredSchedule } from "@/lib/mock-schedule-store";
 import shared from "../personal-shared.module.css";
+import calendarStyles from "../personal-calendar.module.css";
 import exchangeStyles from "../exchange/exchange.module.css";
-import styles from "./schedule.module.css";
+import scheduleStyles from "./schedule.module.css";
+
+const styles = { ...calendarStyles, ...scheduleStyles };
 
 const CURRENT_EMPLOYEE_NAME = "Matt";
 

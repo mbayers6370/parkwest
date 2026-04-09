@@ -1,4 +1,4 @@
-export type CommunicationType = "announcement" | "signup_event";
+export type CommunicationType = "announcement" | "meeting";
 
 export type CommunicationAudience =
   | "all_employees"
@@ -25,9 +25,8 @@ export type CommunicationItem = {
   summary: string;
   body?: string;
   type: CommunicationType;
-  audience: CommunicationAudience;
+  audience: CommunicationAudience[];
   audienceLabel: string;
-  required: boolean;
   publishedAt: string;
   expiresAt?: string;
   slots?: CommunicationSignupSlot[];
@@ -49,6 +48,10 @@ export const COMMUNICATION_AUDIENCE_OPTIONS: Array<{
   { value: "cage", label: "Cage" },
 ];
 
+const COMMUNICATION_AUDIENCE_LABELS = new Map(
+  COMMUNICATION_AUDIENCE_OPTIONS.map((option) => [option.value, option.label] as const),
+);
+
 const SEEDED_COMMUNICATIONS: CommunicationItem[] = [
   {
     id: "comms-title31-apr-2026",
@@ -56,10 +59,9 @@ const SEEDED_COMMUNICATIONS: CommunicationItem[] = [
     title: "Title 31 Training",
     summary: "All FOH employees must attend one upcoming training session.",
     body: "Please sign up for one available Title 31 Training session below. Attendance is required.",
-    type: "signup_event",
-    audience: "all_foh",
+    type: "meeting",
+    audience: ["all_foh"],
     audienceLabel: "All FOH Employees",
-    required: true,
     publishedAt: "2026-04-07T09:00:00.000Z",
     expiresAt: "2026-04-30T23:59:59.000Z",
     slots: [
@@ -102,7 +104,7 @@ export function loadStoredCommunications() {
 
   try {
     const parsed = JSON.parse(raw) as CommunicationItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeCommunicationItem) : [];
   } catch {
     return [];
   }
@@ -125,13 +127,13 @@ export function getAllCommunications(
 
   SEEDED_COMMUNICATIONS.forEach((item) => {
     if (!propertyKey || item.propertyKey === propertyKey) {
-      merged.set(item.id, item);
+      merged.set(item.id, normalizeCommunicationItem(item));
     }
   });
 
   storedItems.forEach((item) => {
     if (!propertyKey || item.propertyKey === propertyKey) {
-      merged.set(item.id, item);
+      merged.set(item.id, normalizeCommunicationItem(item));
     }
   });
 
@@ -151,13 +153,15 @@ export function splitCommunicationsByStatus(
 export function isCommunicationArchived(item: CommunicationItem, now = new Date()) {
   const nowMs = now.getTime();
 
-  if (item.type === "signup_event" && item.slots && item.slots.length > 0) {
-    const lastSlotDate = [...item.slots]
-      .sort((a, b) => a.dateIso.localeCompare(b.dateIso))
-      .at(-1)?.dateIso;
+  if (item.type === "meeting" && item.slots && item.slots.length > 0) {
+    const lastSlotEnd = [...item.slots]
+      .map((slot) => getMeetingSlotEndDate(slot))
+      .filter((value): value is Date => Boolean(value))
+      .sort((a, b) => a.getTime() - b.getTime())
+      .at(-1);
 
-    if (lastSlotDate) {
-      return new Date(`${lastSlotDate}T23:59:59`).getTime() < nowMs;
+    if (lastSlotEnd) {
+      return lastSlotEnd.getTime() < nowMs;
     }
   }
 
@@ -191,4 +195,48 @@ export function getGroupedSlots(item: CommunicationItem) {
   });
 
   return [...groups.values()].sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+}
+
+export function getCommunicationAudienceLabel(audience: CommunicationAudience[] | CommunicationAudience) {
+  const audienceValues = Array.isArray(audience) ? audience : [audience];
+
+  return audienceValues
+    .map((value) => COMMUNICATION_AUDIENCE_LABELS.get(value) ?? value)
+    .join(", ");
+}
+
+function normalizeCommunicationItem(item: CommunicationItem) {
+  const audienceValues = Array.isArray(item.audience) ? item.audience : [item.audience];
+  const { required: _required, ...rest } = item as CommunicationItem & { required?: boolean };
+
+  return {
+    ...rest,
+    audience: audienceValues,
+    audienceLabel: item.audienceLabel || getCommunicationAudienceLabel(audienceValues),
+  };
+}
+
+function getMeetingSlotEndDate(slot: CommunicationSignupSlot) {
+  const endLabel = slot.timeLabel.split("-")[1]?.trim();
+
+  if (!endLabel) {
+    return null;
+  }
+
+  const match = endLabel.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const rawHour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3].toUpperCase();
+  let hour = rawHour % 12;
+
+  if (meridiem === "PM") {
+    hour += 12;
+  }
+
+  return new Date(`${slot.dateIso}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`);
 }

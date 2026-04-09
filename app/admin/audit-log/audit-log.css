@@ -1,0 +1,47 @@
+.admin-giveaway-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-giveaway-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--ivory-100) 92%, transparent);
+}
+
+.admin-giveaway-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-giveaway-title {
+  margin: 0;
+  font-size: var(--text-md-plus);
+  font-weight: 800;
+}
+
+.admin-giveaway-meta,
+.admin-giveaway-copy,
+.admin-giveaway-note {
+  margin: 0;
+  font-size: var(--text-sm-plus);
+  color: var(--foreground-muted);
+  line-height: 1.45;
+}
+
+.admin-giveaway-note {
+  color: var(--foreground);
+}
+
+.admin-giveaway-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

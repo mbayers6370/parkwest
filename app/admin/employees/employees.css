@@ -1,0 +1,34 @@
+.employee-search-results {
+  margin-top: 18px;
+}
+
+.employee-directory-results {
+  margin-top: 16px;
+}
+
+.employee-search-card,
+.employee-edit-card {
+  padding-top: 8px;
+}
+
+.employee-search-card .mini-copy,
+.employee-edit-card .mini-copy {
+  margin-bottom: 18px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.employee-edit-actions {
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.employee-helper-text {
+  margin: 18px 0 0;
+  font-size: var(--text-sm-minus);
+  color: color-mix(in srgb, var(--charcoal-500) 80%, var(--ivory-100));
+}

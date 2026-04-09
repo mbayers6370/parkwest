@@ -158,6 +158,19 @@ export function AdminEmployeeManager({
     }
   }, [selectedEmployee]);
 
+  useEffect(() => {
+    if (!editMessage && !resetMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setEditMessage(null);
+      setResetMessage(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timeout);
+  }, [editMessage, resetMessage]);
+
   async function refreshSearch() {
     const response = await fetch(employeeSearchUrl);
     const data = (await response.json()) as EmployeeResponse;
@@ -236,7 +249,9 @@ export function AdminEmployeeManager({
         `Saved changes for ${data.employee.displayName}.${data.mockMode ? " Mock mode is on, so this is not saved permanently yet." : ""}`,
       );
       await refreshSearch();
-      setSelectedEmployeeId(data.employee.id);
+      setQuery("");
+      setEmployees([]);
+      setSelectedEmployeeId(null);
     } catch (updateError) {
       setError((updateError as Error).message);
     } finally {
@@ -268,7 +283,7 @@ export function AdminEmployeeManager({
       ) : null}
 
       <div className="manager-grid">
-        <section className="result-card">
+        <section className="result-card employee-search-card">
           <p className="mini-label">Add Employee</p>
           <p className="mini-title">Create a new employee record</p>
           <p className="mini-copy">
@@ -343,7 +358,7 @@ export function AdminEmployeeManager({
                 </label>
                 <select
                   id="create-department"
-                  className="text-input"
+                  className="text-input admin-select-input"
                   value={createForm.department}
                   onChange={(event) =>
                     setCreateForm((current) => ({ ...current, department: event.target.value }))
@@ -377,9 +392,6 @@ export function AdminEmployeeManager({
           </p>
 
           <div className="field-stack">
-            <label className="field-label" htmlFor="employee-search">
-              Employee name
-            </label>
             <input
               id="employee-search"
               className="text-input"
@@ -439,7 +451,7 @@ export function AdminEmployeeManager({
         </section>
       </div>
 
-      <section className="result-card">
+      <section className="result-card employee-edit-card">
         <p className="mini-label">Edit Employee</p>
         <p className="mini-title">
           {selectedEmployee ? `Editing ${selectedEmployee.displayName}` : "Choose an employee"}
@@ -516,7 +528,7 @@ export function AdminEmployeeManager({
                 </label>
                 <select
                   id="edit-department"
-                  className="text-input"
+                  className="text-input admin-select-input"
                   value={editForm.department}
                   onChange={(event) =>
                     setEditForm((current) => ({ ...current, department: event.target.value }))
@@ -555,8 +567,8 @@ export function AdminEmployeeManager({
           </div>
         )}
 
-        {editMessage ? <p className="status-text success">{editMessage}</p> : null}
-        {resetMessage ? <p className="status-text success">{resetMessage}</p> : null}
+        {editMessage ? <p className="employee-helper-text">{editMessage}</p> : null}
+        {resetMessage ? <p className="employee-helper-text">{resetMessage}</p> : null}
       </section>
     </div>
   );

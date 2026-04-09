@@ -52,9 +52,12 @@ import {
   type CommunicationItem,
 } from "@/lib/communications";
 import shared from "./personal-shared.module.css";
-import styles from "./home.module.css";
+import calendarStyles from "./personal-calendar.module.css";
+import homeStyles from "./home.module.css";
 import requestStyles from "./requests/requests.module.css";
 import exchangeStyles from "./exchange/exchange.module.css";
+
+const styles = { ...calendarStyles, ...homeStyles };
 
 const CURRENT_USER = {
   firstName: "Matt",

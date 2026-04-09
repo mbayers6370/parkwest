@@ -1,6 +1,12 @@
 "use client";
 
+import "./audit-log.css";
 import { useEffect, useMemo, useState } from "react";
+import {
+  ADMIN_AUDIT_LOG_UPDATED_EVENT,
+  loadStoredAdminAuditEvents,
+  type AdminAuditEvent,
+} from "@/lib/admin-audit-log-store";
 import {
   ATTENDANCE_EVENT_LABELS,
   formatAttendanceEventDetail,
@@ -24,7 +30,8 @@ export default function AdminAuditLogPage() {
     AttendanceEvent[]
   >([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([]);
-  const [activeTab, setActiveTab] = useState<"attendance" | "schedule">("attendance");
+  const [adminAuditEvents, setAdminAuditEvents] = useState<AdminAuditEvent[]>([]);
+  const [activeTab, setActiveTab] = useState<"attendance" | "schedule" | "admin">("attendance");
 
   useEffect(() => {
     const syncAttendanceEvents = () => {
@@ -33,17 +40,25 @@ export default function AdminAuditLogPage() {
     const syncScheduleOverrides = () => {
       setScheduleOverrides(loadStoredScheduleOverrides());
     };
+    const syncAdminAuditEvents = () => {
+      setAdminAuditEvents(loadStoredAdminAuditEvents());
+    };
 
     syncAttendanceEvents();
     syncScheduleOverrides();
+    syncAdminAuditEvents();
     window.addEventListener("storage", syncAttendanceEvents);
     window.addEventListener("storage", syncScheduleOverrides);
+    window.addEventListener("storage", syncAdminAuditEvents);
     window.addEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
+    window.addEventListener(ADMIN_AUDIT_LOG_UPDATED_EVENT, syncAdminAuditEvents);
 
     return () => {
       window.removeEventListener("storage", syncAttendanceEvents);
       window.removeEventListener("storage", syncScheduleOverrides);
+      window.removeEventListener("storage", syncAdminAuditEvents);
       window.removeEventListener(SCHEDULE_OVERRIDES_UPDATED_EVENT, syncScheduleOverrides);
+      window.removeEventListener(ADMIN_AUDIT_LOG_UPDATED_EVENT, syncAdminAuditEvents);
     };
   }, []);
 
@@ -67,9 +82,9 @@ export default function AdminAuditLogPage() {
     <>
       <header className="admin-page-header">
         <p className="admin-page-eyebrow">Manager / Admin</p>
-        <h1 className="admin-page-title">Attendance Log</h1>
+        <h1 className="admin-page-title">Audit Log</h1>
         <p className="admin-page-subtitle">
-          Daily attendance report for the last 24 hours
+          Attendance, schedule changes, and timestamped admin activity
         </p>
         <nav className="admin-page-tabs" aria-label="Audit filters">
           <button
@@ -85,6 +100,13 @@ export default function AdminAuditLogPage() {
             onClick={() => setActiveTab("schedule")}
           >
             Schedule Changes
+          </button>
+          <button
+            type="button"
+            className={`admin-page-tab${activeTab === "admin" ? " active" : ""}`}
+            onClick={() => setActiveTab("admin")}
+          >
+            Admin Activity
           </button>
         </nav>
       </header>
@@ -156,7 +178,7 @@ export default function AdminAuditLogPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === "schedule" ? (
           <div className="admin-card">
             <div className="admin-card-header">
               <div>
@@ -201,6 +223,46 @@ export default function AdminAuditLogPage() {
               )}
             </div>
           </div>
+        ) : (
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div>
+                <p className="admin-card-title">Admin Activity</p>
+                <p className="admin-card-subtitle">
+                  Timestamped communication and published schedule actions
+                </p>
+              </div>
+            </div>
+            <div className="admin-card-body">
+              {adminAuditEvents.length === 0 ? (
+                <div className="empty-state" style={{ textAlign: "center", padding: "28px 16px" }}>
+                  <p className="mini-title" style={{ marginBottom: 6 }}>
+                    No admin activity yet
+                  </p>
+                  <p className="mini-copy">
+                    Communication changes and published schedule updates will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="data-list">
+                  {adminAuditEvents.slice(0, 50).map((event) => (
+                    <div key={event.id} className="data-row">
+                      <div className="data-row-main">
+                        <p className="data-row-title">{event.title}</p>
+                        <p className="data-row-sub">
+                          {event.detail} · {event.actor} · {formatDateTime(event.createdAt)}
+                        </p>
+                      </div>
+                      <div className="data-row-right">
+                        <span className="badge gold">{formatAuditCategory(event.category)}</span>
+                        <span className="badge success">{event.action}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </>
@@ -212,4 +274,21 @@ function formatTime(value: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatAuditCategory(category: AdminAuditEvent["category"]) {
+  if (category === "communications") {
+    return "Communications";
+  }
+
+  return "Published Schedule";
 }

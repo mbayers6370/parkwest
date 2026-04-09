@@ -1,5 +1,6 @@
 "use client";
 
+import "./schedule.css";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
@@ -17,6 +18,7 @@ import {
   savePublishedSchedulesForProperty,
   type PublishedSchedulePreview,
 } from "@/lib/published-schedule-store";
+import { appendAdminAuditEvent } from "@/lib/admin-audit-log-store";
 
 type ScheduleManagerTab = "import" | "published" | "edit";
 
@@ -187,6 +189,15 @@ export default function AdminScheduleManagerPage() {
     }
 
     savePublishedSchedulesForProperty(adminProperty?.propertyKey, publishedSchedules);
+    appendAdminAuditEvent({
+      category: "published_schedule",
+      action: "Edited",
+      title: selectedEmployee.scheduleTitle,
+      detail: `${selectedEmployee.name}'s published week was updated`,
+      actor: "Manager / Admin",
+      propertyKey: adminProperty?.propertyKey,
+      propertyName: adminProperty?.propertyName,
+    });
     setEditSuccess(`${selectedEmployee.name}'s published schedule was updated.`);
   }
 
@@ -196,6 +207,15 @@ export default function AdminScheduleManagerPage() {
     }
 
     removePublishedScheduleForProperty(adminProperty?.propertyKey, deleteTargetTitle);
+    appendAdminAuditEvent({
+      category: "published_schedule",
+      action: "Deleted",
+      title: deleteTargetTitle,
+      detail: "Published schedule removed",
+      actor: "Manager / Admin",
+      propertyKey: adminProperty?.propertyKey,
+      propertyName: adminProperty?.propertyName,
+    });
 
     if (expandedScheduleTitle === deleteTargetTitle) {
       setExpandedScheduleTitle(null);
@@ -366,7 +386,7 @@ export default function AdminScheduleManagerPage() {
                   </label>
                   <select
                     id="schedule-week-select"
-                    className="text-input"
+                    className="text-input admin-select-input"
                     value={selectedScheduleTitle ?? ""}
                     onChange={(event) => {
                       setSelectedScheduleTitle(event.target.value);
@@ -454,7 +474,7 @@ export default function AdminScheduleManagerPage() {
                           </p>
                           <select
                             id={`${selectedEmployee.key}-${day}`}
-                            className="text-input"
+                            className="text-input admin-select-input"
                             value={selectedEmployee.shifts[index] ?? ""}
                             onChange={(event) => updateSelectedEmployeeShift(index, event.target.value)}
                           >

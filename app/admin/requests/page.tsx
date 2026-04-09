@@ -1,5 +1,6 @@
 "use client";
 
+import "./requests.css";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";

@@ -7,7 +7,10 @@ import {
 } from "@/lib/published-schedule-store";
 import type { ScheduleEntry } from "@/lib/mock-schedule";
 import { getScheduleShiftFamily } from "@/lib/schedule-color-system";
-import styles from "./schedule.module.css";
+import scheduleStyles from "./schedule.module.css";
+import sharedStyles from "../floor-shared.module.css";
+
+const styles = { ...sharedStyles, ...scheduleStyles };
 const DEPARTMENTS = ["dealer", "floor", "chip_runner"] as const;
 
 const DAYS = [

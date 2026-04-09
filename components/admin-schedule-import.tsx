@@ -2,7 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useAdminProperty } from "@/components/admin-property-provider";
-import { CircleAlert, CloudUpload, FileSpreadsheet } from "lucide-react";
+import { CircleAlert, FileSpreadsheet } from "lucide-react";
+import { appendAdminAuditEvent } from "@/lib/admin-audit-log-store";
 import { getScheduleShiftFamily, isScheduleStatusToken, type ScheduleShiftFamily } from "@/lib/schedule-color-system";
 import {
   getPublishedScheduleTitle,
@@ -151,6 +152,7 @@ export function AdminScheduleImport() {
       return;
     }
 
+    const publishedTitle = preview.sheets[0]?.displayName ?? preview.fileName;
     upsertPublishedSchedule({
       propertyKey: adminProperty?.propertyKey,
       propertyName: adminProperty?.propertyName,
@@ -159,9 +161,18 @@ export function AdminScheduleImport() {
       sheets: preview.sheets,
       shiftFamilies: preview.shiftFamilies,
     });
+    appendAdminAuditEvent({
+      category: "published_schedule",
+      action: "Published",
+      title: publishedTitle,
+      detail: "Published from schedule import",
+      actor: "Manager / Admin",
+      propertyKey: adminProperty?.propertyKey,
+      propertyName: adminProperty?.propertyName,
+    });
     setPublishConflict(null);
     setPublishSuccess(
-      `${preview.sheets[0]?.displayName ?? preview.fileName} was published successfully.${mockMode ? " Mock mode is on." : ""}`,
+      `${publishedTitle} was published successfully.${mockMode ? " Mock mode is on." : ""}`,
     );
   }
 
@@ -171,9 +182,6 @@ export function AdminScheduleImport() {
       <form className="stack" onSubmit={handleSubmit}>
         <section className="schedule-import-upload-card">
           <div className="schedule-import-upload-head">
-            <div className="schedule-import-upload-head-icon">
-              <CloudUpload size={24} aria-hidden="true" />
-            </div>
             <div>
               <p className="schedule-import-upload-title">Upload schedule file</p>
               <p className="schedule-import-upload-subtitle">

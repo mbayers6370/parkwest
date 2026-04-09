@@ -111,7 +111,7 @@ export default function PersonalCommunicationsPage() {
                 <div className="empty-state">
                   <p className="mini-title">No current communications.</p>
                   <p className="mini-copy">
-                    New team notices and sign-up events will show up here.
+                    New team notices and meetings will show up here.
                   </p>
                 </div>
               </div>
@@ -131,18 +131,16 @@ export default function PersonalCommunicationsPage() {
                       <div className={styles.cardHeader}>
                         <div>
                           <p className={styles.eyebrow}>
-                            {item.type === "signup_event" ? "Sign-Up Event" : "Notice"}
+                            {item.type === "meeting" ? "Meeting" : "Notice"}
                           </p>
                           <h2 className={styles.title}>{item.title}</h2>
                           <p className={styles.meta}>
-                            {item.audienceLabel} · {item.required ? "Required" : "Optional"}
+                            {item.audienceLabel}
                           </p>
                         </div>
                         <div className={styles.cardHeaderRight}>
                           {employeeSignup ? (
                             <span className="badge success">Signed Up</span>
-                          ) : item.required ? (
-                            <span className="badge gold">Required</span>
                           ) : null}
                           <ChevronDown
                             size={18}
@@ -170,7 +168,7 @@ export default function PersonalCommunicationsPage() {
                           </div>
                         ) : null}
 
-                        {item.type === "signup_event" ? (
+                        {item.type === "meeting" ? (
                           <div className={styles.dateGroups}>
                             {getGroupedSlots(item).map((group) => (
                               <section key={group.dateIso} className={styles.dateGroup}>

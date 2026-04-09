@@ -12,8 +12,8 @@
   gap: var(--gap-card);
 }
 
-.floorDesktopMain,
-.floorDesktopSide {
+.floorTopGrid,
+.floorFullStack {
   display: flex;
   flex-direction: column;
   gap: var(--gap-card);
@@ -26,88 +26,18 @@
   width: 100%;
 }
 
-.floorPill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: var(--text-sm-plus);
-  font-weight: 700;
-  color: var(--foreground-muted);
-  cursor: pointer;
-  text-decoration: none;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
-  text-align: center;
-  text-transform: capitalize;
-}
-
-.floorPillActive {
-  background: color-mix(in srgb, var(--gold) 12%, transparent);
-  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
-  color: var(--gold-dark);
-  font-weight: 400;
-}
-
-.floorPillHalfPointActive {
-  background: color-mix(in srgb, var(--gold) 12%, transparent);
-  border-color: color-mix(in srgb, var(--gold-dark) 45%, transparent);
-  color: var(--gold-dark);
-  font-weight: 400;
-}
-
-.floorSection {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.floorSectionBody {
-  padding: 16px 18px;
+.floorTopCard {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-card-tight);
+  height: 100%;
+  min-height: 0;
 }
 
-.floorSectionDrenched {
-  border-color: color-mix(in srgb, var(--charcoal-900) 14%, var(--border));
-}
-
-.floorSectionHeader {
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
+.floorTopCardBody {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--gap-card-tight);
-}
-
-.floorSectionHeaderDrenched {
-  background: var(--charcoal-900);
-  border-bottom-color: color-mix(in srgb, var(--ivory-100) 12%, transparent);
-}
-
-.floorSectionSubtitle {
-  margin: 0;
-  font-size: var(--text-sm-plus);
-  color: var(--foreground-muted);
-}
-
-.floorSectionSubtitleDrenched {
-  color: color-mix(in srgb, var(--ivory-100) 62%, transparent);
-}
-
-.floorSectionTitle {
-  margin: 0 0 2px;
-  font-size: var(--text-base);
-  font-weight: 800;
-}
-
-.floorSectionTitleDrenched {
-  color: var(--ivory-100);
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .shiftSummary {
@@ -136,34 +66,85 @@
   font-size: var(--text-xs-plus);
 }
 
-.shiftChevron {
-  color: var(--foreground-muted);
-  flex-shrink: 0;
-  transition: transform 0.18s ease;
+.floorShiftCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
 }
 
-.shiftChevronOpen {
-  transform: rotate(180deg);
+.floorShiftCardTop {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 14px;
+}
+
+.shiftTimeSelect {
+  min-width: 0;
+}
+
+.shiftExpandedBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .shiftDealerList {
+  flex: 1;
+  min-height: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid color-mix(in srgb, var(--charcoal-500) 18%, var(--ivory-100));
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 18%, var(--ivory-100));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
+  overflow: hidden;
 }
 
 @media (min-width: 900px) {
-  .shiftExpandedBody {
+  .floorDesktopGrid {
     display: flex;
     flex-direction: column;
-    height: 300px;
+    gap: var(--gap-card-desktop);
+  }
+
+  .floorTopGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--gap-card-desktop);
+  }
+
+  .floorTopGrid > * {
+    height: 100%;
+  }
+
+  .floorFullStack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card-desktop);
+  }
+
+  .floorScheduleBody {
+    height: 420px;
+    min-height: 420px;
+  }
+
+  .shiftExpandedBody {
     overflow: hidden;
   }
 
   .shiftDealerList {
-    flex: 1;
-    min-height: 0;
+    overflow: auto;
+  }
+
+  .floorGiveawayRail {
+    height: 220px;
+    min-height: 220px;
+  }
+
+  .floorGiveawayRailBody {
     overflow: auto;
   }
 }
@@ -189,6 +170,10 @@
 
 .floorScheduleBody {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .floorScheduleBodyScrollable {
@@ -327,8 +312,6 @@
   text-transform: capitalize;
 }
 
-.shiftMarkBtnLate {}
-
 .shiftMarkBtnLate:hover,
 .shiftMarkBtnLateActive {
   background: color-mix(in srgb, var(--gold) 10%, transparent);
@@ -336,16 +319,13 @@
   color: var(--gold-dark);
 }
 
-.shiftMarkBtnLateActive {}
-
 .shiftRandomizeBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--gap-card);
   padding: 16px 20px 18px;
-  border-top: 1px solid color-mix(in srgb, var(--ivory-300) 60%, transparent);
-  background: color-mix(in srgb, var(--ivory-200) 50%, transparent);
+  margin-top: auto;
 }
 
 .shiftRandomizeLabel {
@@ -449,10 +429,14 @@
 }
 
 .floorGiveawayRail {
+  display: flex;
+  flex-direction: column;
   max-height: none;
 }
 
 .floorGiveawayRailBody {
+  flex: 1;
+  min-height: 0;
   overflow: visible;
 }
 
@@ -604,11 +588,26 @@
   min-width: 76px;
 }
 
+.floorAttendanceReportCard {
+  border: 1px solid color-mix(in srgb, var(--charcoal-500) 18%, var(--ivory-100));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ivory-100) 98%, transparent);
+  flex: 1;
+  min-height: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.floorAttendanceEmptyState {
+  padding: 28px 16px;
+  text-align: center;
+}
+
 .floorAttendanceAlertList {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 6px 0 18px;
+  padding: 12px;
 }
 
 .floorAttendanceEditor {
@@ -844,5 +843,11 @@
   .floorScheduleBodyScrollable {
     max-height: calc(100vh - 290px);
     overflow: auto;
+  }
+}
+
+@media (max-width: 899px) {
+  .floorShiftCardTop {
+    padding: 16px;
   }
 }
