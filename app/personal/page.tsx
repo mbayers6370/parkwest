@@ -442,38 +442,41 @@ export default function PersonalHomePage() {
         <div className={styles.scheduleOverviewStrip}>
           <div className={styles.calendarStrip}>
             {/* Month row */}
-            <div className={styles.monthRow} aria-label="Months">
+            <div
+              className={`${calendarStyles.monthRow} ${homeStyles.homeMonthRow ?? ""}`}
+              aria-label="Months"
+            >
               {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m) => (
                 <Link
                   key={m}
                   href="/personal/schedule"
-                  className={`${styles.monthPill} ${m === "Apr" ? styles.monthPillActive : ""}`}
+                  className={`${calendarStyles.monthPill} ${homeStyles.homeMonthPill ?? ""} ${m === "Apr" ? calendarStyles.monthPillActive : ""}`}
                 >
                   {m}
                 </Link>
               ))}
             </div>
             {/* Date row */}
-            <div className={styles.dateRow} role="list">
+            <div className={`${calendarStyles.dateRow} ${homeStyles.homeDateRow ?? ""}`} role="list">
               {weekDays.map((day) => (
                 <button
                   key={day.dateIso}
                   type="button"
                   role="listitem"
                   className={[
-                    styles.dateCell,
-                    day.today ? styles.dateCellToday : "",
-                    day.past ? styles.dateCellPast : "",
+                    calendarStyles.dateCell,
+                    day.today ? calendarStyles.dateCellToday : "",
+                    day.past ? calendarStyles.dateCellPast : "",
                     day.off ? styles.dateCellOff : "",
                   ].filter(Boolean).join(" ")}
                   aria-label={`${day.name} ${day.num}, ${day.off ? "Off" : `${day.startTime} to ${day.endTime}`}`}
                   onClick={() => setSelectedWeekDay(day)}
                 >
-                  <span className={styles.dateCellNum}>{day.num}</span>
-                  <span className={styles.dateCellName}>{day.name}</span>
+                  <span className={calendarStyles.dateCellNum}>{day.num}</span>
+                  <span className={calendarStyles.dateCellName}>{day.name}</span>
                   {day.off
-                    ? <span className={styles.dateCellDotEmpty} aria-hidden="true" />
-                    : <span className={styles.dateCellDot} aria-hidden="true" />
+                    ? <span className={calendarStyles.dateCellDotEmpty} aria-hidden="true" />
+                    : <span className={calendarStyles.dateCellDot} aria-hidden="true" />
                   }
                 </button>
               ))}

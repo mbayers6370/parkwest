@@ -244,6 +244,16 @@
   padding: 0 18px 18px;
 }
 
+@media (min-width: 900px) {
+  .requestsPageStack {
+    padding: 24px 28px 28px;
+    border: 1px solid color-mix(in srgb, var(--charcoal-500) 22%, var(--ivory-100));
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--ivory-100) 96%, transparent);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--charcoal-900) 5%, transparent);
+  }
+}
+
 @media (max-width: 899px) {
   .requestFormGrid,
   .requestFormGridThree,

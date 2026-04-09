@@ -248,6 +248,18 @@
 }
 
 @media (min-width: 900px) {
+  .summaryGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .schedulePageMain {
+    padding: 24px 28px 28px;
+    border: 1px solid color-mix(in srgb, var(--charcoal-500) 22%, var(--ivory-100));
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--ivory-100) 96%, transparent);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--charcoal-900) 5%, transparent);
+  }
+
   .scheduleActionGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -256,9 +268,5 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-  }
-
-  .summaryGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

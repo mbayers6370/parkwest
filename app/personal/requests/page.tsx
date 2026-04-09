@@ -35,6 +35,7 @@ const CURRENT_EMPLOYEE = {
 };
 
 export default function PersonalRequestsPage() {
+  const todayIso = getTodayIsoDate();
   const [fullName, setFullName] = useState("");
   const [supervisor, setSupervisor] = useState("");
   const [dateSubmitted, setDateSubmitted] = useState(getTodayIsoDate());
@@ -100,7 +101,9 @@ export default function PersonalRequestsPage() {
   }
 
   const employeeRequests = getAllTimeOffRequests(storedRequests).filter(
-    (request) => request.fullName === CURRENT_EMPLOYEE.fullName,
+    (request) =>
+      request.fullName === CURRENT_EMPLOYEE.fullName &&
+      getRequestDisplayEndDate(request) >= todayIso,
   );
 
   return (
@@ -409,6 +412,14 @@ function formatDateRange(start: string, end: string) {
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function getRequestDisplayEndDate(request: TimeOffRequest) {
+  return (
+    request.absenceEndDate ||
+    request.absenceStartDate ||
+    request.dateSubmitted
+  );
 }
 
 function RequestStatusRow({ request }: { request: TimeOffRequest }) {

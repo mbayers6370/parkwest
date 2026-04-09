@@ -319,7 +319,7 @@
     max-width: none;
   }
 
-  .monthRow {
+  .homeMonthRow {
     display: flex;
     gap: 0;
     overflow-x: auto;
@@ -327,17 +327,17 @@
     padding: 0 4px 10px;
   }
 
-  .monthRow::-webkit-scrollbar {
+  .homeMonthRow::-webkit-scrollbar {
     display: none;
   }
 
-  .monthPill {
+  .homeMonthPill {
     width: auto;
     flex-shrink: 0;
     padding: 4px 12px;
   }
 
-  .dateRow {
+  .homeDateRow {
     gap: 4px;
   }
 }

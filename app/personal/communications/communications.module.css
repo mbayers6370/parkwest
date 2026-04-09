@@ -84,6 +84,15 @@
   color: var(--gold-dark);
 }
 
+.signupSummaryContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .signupSummaryTitle {
   margin: 0;
   font-size: var(--text-sm);
@@ -93,6 +102,19 @@
 .signupSummaryMeta {
   margin: 4px 0 0;
   font-size: var(--text-sm);
+}
+
+.signupSummaryButton {
+  min-width: 0;
+  white-space: nowrap;
+  border-color: color-mix(in srgb, var(--gold-dark) 42%, transparent);
+  color: var(--gold-dark);
+}
+
+.signupSummaryButton:hover {
+  border-color: color-mix(in srgb, var(--gold-dark) 56%, transparent);
+  background: color-mix(in srgb, var(--gold) 10%, var(--ivory-100));
+  color: var(--gold-dark);
 }
 
 .dateGroups {
@@ -175,6 +197,11 @@
   }
 
   .slotButton {
+    align-items: flex-start;
+  }
+
+  .signupSummaryContent {
+    flex-direction: column;
     align-items: flex-start;
   }
 }

@@ -20,6 +20,7 @@ const CURRENT_EMPLOYEE_NAME = "Matthew Bayers";
 export default function PersonalCommunicationsPage() {
   const [storedCommunications, setStoredCommunications] = useState<CommunicationItem[]>([]);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [changingSignupIds, setChangingSignupIds] = useState<string[]>([]);
 
   useEffect(() => {
     const syncCommunications = () => {
@@ -55,6 +56,12 @@ export default function PersonalCommunicationsPage() {
     });
   }, [visibleItems]);
 
+  useEffect(() => {
+    setChangingSignupIds((current) =>
+      current.filter((id) => visibleItems.some((item) => item.id === id)),
+    );
+  }, [visibleItems]);
+
   function updateCommunications(nextItems: CommunicationItem[]) {
     setStoredCommunications(nextItems);
     saveStoredCommunications(nextItems);
@@ -84,6 +91,7 @@ export default function PersonalCommunicationsPage() {
     });
 
     updateCommunications(nextItems);
+    setChangingSignupIds((current) => current.filter((id) => id !== itemId));
   }
 
   function toggleItem(itemId: string) {
@@ -151,7 +159,7 @@ export default function PersonalCommunicationsPage() {
                       </div>
                     </button>
 
-                    {isExpanded ? (
+                  {isExpanded ? (
                       <div className={styles.cardBody}>
                         <p className={styles.summary}>{item.summary}</p>
                         {item.body ? <p className={styles.body}>{item.body}</p> : null}
@@ -159,11 +167,26 @@ export default function PersonalCommunicationsPage() {
                         {employeeSignup ? (
                           <div className={styles.signupSummary}>
                             <CheckCircle2 size={18} aria-hidden="true" />
-                            <div>
-                              <p className={styles.signupSummaryTitle}>You are signed up</p>
-                              <p className={styles.signupSummaryMeta}>
-                                {employeeSignup.dateLabel} · {employeeSignup.timeLabel}
-                              </p>
+                            <div className={styles.signupSummaryContent}>
+                              <div>
+                                <p className={styles.signupSummaryTitle}>You are signed up</p>
+                                <p className={styles.signupSummaryMeta}>
+                                  {employeeSignup.dateLabel} · {employeeSignup.timeLabel}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className={`secondary-button ${styles.signupSummaryButton}`}
+                                onClick={() =>
+                                  setChangingSignupIds((current) =>
+                                    current.includes(item.id)
+                                      ? current.filter((id) => id !== item.id)
+                                      : [...current, item.id],
+                                  )
+                                }
+                              >
+                                {changingSignupIds.includes(item.id) ? "Cancel" : "Change Time"}
+                              </button>
                             </div>
                           </div>
                         ) : null}
@@ -178,13 +201,16 @@ export default function PersonalCommunicationsPage() {
                                     const isSelected = employeeSignup?.id === slot.id;
                                     const isFull =
                                       slot.signups.length >= slot.capacity && !isSelected;
+                                    const isChangingTime = changingSignupIds.includes(item.id);
+                                    const isLockedForChange =
+                                      Boolean(employeeSignup) && !isChangingTime && !isSelected;
 
                                     return (
                                       <button
                                         key={slot.id}
                                         type="button"
                                         className={`${styles.slotButton} ${isSelected ? styles.slotButtonActive : ""}`}
-                                        disabled={isFull}
+                                        disabled={isFull || isLockedForChange}
                                         onClick={() => handleSignup(item.id, slot.id)}
                                       >
                                         <div>
@@ -201,6 +227,10 @@ export default function PersonalCommunicationsPage() {
                                             </>
                                           ) : isFull ? (
                                             <span>Full</span>
+                                          ) : employeeSignup && isChangingTime ? (
+                                            <span>Change To This Time</span>
+                                          ) : employeeSignup ? (
+                                            <span>Change Time</span>
                                           ) : (
                                             <span>Sign Up</span>
                                           )}
