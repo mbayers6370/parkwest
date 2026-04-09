@@ -21,6 +21,7 @@ export default function PersonalCommunicationsPage() {
   const [storedCommunications, setStoredCommunications] = useState<CommunicationItem[]>([]);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [changingSignupIds, setChangingSignupIds] = useState<string[]>([]);
+  const [hasInitializedExpanded, setHasInitializedExpanded] = useState(false);
 
   useEffect(() => {
     const syncCommunications = () => {
@@ -52,9 +53,17 @@ export default function PersonalCommunicationsPage() {
       const nextIds = visibleItems.map((item) => item.id);
       const kept = current.filter((id) => nextIds.includes(id));
 
-      return kept.length > 0 ? kept : nextIds;
+      if (!hasInitializedExpanded) {
+        return nextIds;
+      }
+
+      return kept;
     });
-  }, [visibleItems]);
+
+    if (!hasInitializedExpanded) {
+      setHasInitializedExpanded(true);
+    }
+  }, [hasInitializedExpanded, visibleItems]);
 
   useEffect(() => {
     setChangingSignupIds((current) =>
@@ -92,6 +101,7 @@ export default function PersonalCommunicationsPage() {
 
     updateCommunications(nextItems);
     setChangingSignupIds((current) => current.filter((id) => id !== itemId));
+    setExpandedIds((current) => current.filter((id) => id !== itemId));
   }
 
   function toggleItem(itemId: string) {
@@ -127,6 +137,8 @@ export default function PersonalCommunicationsPage() {
               visibleItems.map((item) => {
                 const employeeSignup = getCommunicationEmployeeSignup(item, CURRENT_EMPLOYEE_NAME);
                 const isExpanded = expandedIds.includes(item.id);
+                const isChangingTime = changingSignupIds.includes(item.id);
+                const isMeetingLike = item.type === "meeting" || Boolean(item.slots?.length);
 
                 return (
                   <article key={item.id} className={shared.personalPanel}>
@@ -137,9 +149,9 @@ export default function PersonalCommunicationsPage() {
                       aria-expanded={isExpanded}
                     >
                       <div className={styles.cardHeader}>
-                        <div>
+                        <div className={styles.cardHeaderContent}>
                           <p className={styles.eyebrow}>
-                            {item.type === "meeting" ? "Meeting" : "Notice"}
+                            {isMeetingLike ? "Meeting" : "Notice"}
                           </p>
                           <h2 className={styles.title}>{item.title}</h2>
                           <p className={styles.meta}>
@@ -147,15 +159,15 @@ export default function PersonalCommunicationsPage() {
                           </p>
                         </div>
                         <div className={styles.cardHeaderRight}>
-                          {employeeSignup ? (
-                            <span className="badge success">Signed Up</span>
-                          ) : null}
                           <ChevronDown
                             size={18}
                             aria-hidden="true"
                             className={`${styles.cardChevron} ${isExpanded ? styles.cardChevronOpen : ""}`}
                           />
                         </div>
+                        {employeeSignup ? (
+                          <span className={styles.cardStatus}>Signed Up</span>
+                        ) : null}
                       </div>
                     </button>
 
@@ -185,13 +197,13 @@ export default function PersonalCommunicationsPage() {
                                   )
                                 }
                               >
-                                {changingSignupIds.includes(item.id) ? "Cancel" : "Change Time"}
+                                {isChangingTime ? "Cancel" : "Change Time"}
                               </button>
                             </div>
                           </div>
                         ) : null}
 
-                        {item.type === "meeting" ? (
+                        {isMeetingLike ? (
                           <div className={styles.dateGroups}>
                             {getGroupedSlots(item).map((group) => (
                               <section key={group.dateIso} className={styles.dateGroup}>
@@ -201,7 +213,6 @@ export default function PersonalCommunicationsPage() {
                                     const isSelected = employeeSignup?.id === slot.id;
                                     const isFull =
                                       slot.signups.length >= slot.capacity && !isSelected;
-                                    const isChangingTime = changingSignupIds.includes(item.id);
                                     const isLockedForChange =
                                       Boolean(employeeSignup) && !isChangingTime && !isSelected;
 

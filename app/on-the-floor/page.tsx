@@ -1284,7 +1284,7 @@ export default function OnTheFloorNowPage() {
                             )}
                             onClick={() => setNewAttendanceType("call_out_point")}
                           >
-                            Call Out - 1 Point
+                            1 Point
                           </button>
                           <button
                             type="button"
@@ -1810,7 +1810,7 @@ export default function OnTheFloorNowPage() {
                     )}
                     onClick={() => setEditAttendanceType("call_out_point")}
                   >
-                    Call Out - 1 Point
+                    1 Point
                   </button>
                   <button
                     type="button"

@@ -428,6 +428,16 @@
   padding: 22px 12px 18px;
 }
 
+.floorAttendanceEmptyState :global(.mini-title),
+.floorGiveawayEmpty :global(.mini-title) {
+  color: color-mix(in srgb, var(--charcoal-900) 42%, var(--ivory-100));
+}
+
+.floorAttendanceEmptyState :global(.mini-copy),
+.floorGiveawayEmpty :global(.mini-copy) {
+  color: color-mix(in srgb, var(--charcoal-900) 32%, var(--ivory-100));
+}
+
 .floorGiveawayRail {
   display: flex;
   flex-direction: column;
@@ -586,6 +596,26 @@
 
 .floorAttendanceFilterPill {
   min-width: 76px;
+}
+
+@media (max-width: 899px) {
+  .floorAttendanceCreateGrid {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .floorAttendanceTypeRow {
+    flex-wrap: wrap;
+  }
+
+  .floorAttendanceHoursField {
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .floorAttendanceHoursInput {
+    width: 100%;
+  }
 }
 
 .floorAttendanceReportCard {

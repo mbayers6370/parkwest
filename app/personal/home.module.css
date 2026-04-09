@@ -126,9 +126,10 @@
   color: var(--gold-dark);
 }
 
-.communicationBannerAction:hover {
-  background: color-mix(in srgb, var(--ivory-100) 84%, transparent);
+.communicationBannerAction:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gold) 12%, var(--ivory-100));
   border-color: color-mix(in srgb, var(--gold-dark) 58%, transparent);
+  color: var(--gold-dark);
 }
 
 /* ── Hero shift block ── */

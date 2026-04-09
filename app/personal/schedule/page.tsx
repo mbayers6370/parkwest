@@ -452,7 +452,7 @@ export default function PersonalSchedulePage() {
   return (
     <main className={shared.personalContent}>
       <div className={`${shared.personalFullSpan} ${styles.schedulePageMain}`}>
-        <div className={shared.pCard}>
+        <div className={`${shared.pCard} ${styles.scheduleSummaryCard}`}>
           <div className={shared.pCardHeader}>
             <p className={shared.pCardTitle}>Week Summary</p>
           </div>
