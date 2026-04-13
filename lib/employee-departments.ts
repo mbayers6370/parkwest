@@ -4,6 +4,8 @@ export const EMPLOYEE_DEPARTMENT_OPTIONS = [
   { key: "dual_rate", name: "Dual Rate" },
   { key: "chip_runner", name: "Chip Runner" },
   { key: "cage", name: "Cage" },
+  { key: "food_and_beverage", name: "Food & Beverage" },
+  { key: "security", name: "Security" },
 ] as const;
 
 export type EmployeeDepartmentName =
@@ -19,6 +21,8 @@ export function findDepartmentOptionByName(rawName?: string | null) {
   const legacyAliases: Record<string, EmployeeDepartmentName> = {
     dealers: "Dealer",
     "chip runners": "Chip Runner",
+    "food and beverage": "Food & Beverage",
+    "f&b": "Food & Beverage",
   };
 
   const canonicalName = legacyAliases[normalized] ?? rawName?.trim();

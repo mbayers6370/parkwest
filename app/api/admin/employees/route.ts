@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EmployeeStatus, EmploymentType, WorkspaceKey } from "@prisma/client";
+import { EmployeeStatus, EmploymentType, Prisma, WorkspaceKey } from "@prisma/client";
+import {
+  getAdminModuleDepartmentNames,
+  isGlobalAdminModule,
+  moduleAllowsDepartment,
+} from "@/lib/admin-modules";
 import { findDepartmentOptionByName } from "@/lib/employee-departments";
 import { isMockModeEnabled, mockEmployees } from "@/lib/mock-data";
 import { findDefaultPropertyByKey } from "@/lib/properties";
@@ -8,7 +13,9 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query")?.trim() ?? "";
   const propertyKey = request.nextUrl.searchParams.get("propertyKey")?.trim().toLowerCase() ?? "";
+  const moduleKey = request.nextUrl.searchParams.get("moduleKey")?.trim().toUpperCase() ?? "";
   const includeAll = request.nextUrl.searchParams.get("all") === "1";
+  const moduleDepartmentNames = getAdminModuleDepartmentNames(moduleKey);
 
   if (isMockModeEnabled()) {
     const normalizedQuery = query.toLowerCase();
@@ -18,6 +25,15 @@ export async function GET(request: NextRequest) {
         : true;
 
       if (!matchesProperty) {
+        return false;
+      }
+
+      if (
+        moduleKey &&
+        !employee.departmentAssignments.some((assignment) =>
+          moduleAllowsDepartment(moduleKey, assignment.department.departmentName),
+        )
+      ) {
         return false;
       }
 
@@ -44,44 +60,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const employees = await prisma.employee.findMany({
-      where: query
-        ? {
-            AND: [
-              propertyKey
-                ? {
-                    property: {
-                      is: {
-                        propertyKey,
-                      },
-                    },
-                  }
-                : {},
-              {
-                OR: [
-                  {
-                    displayName: {
-                      contains: query,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    firstName: {
-                      contains: query,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    lastName: {
-                      contains: query,
-                      mode: "insensitive",
-                    },
-                  },
-                ],
-              },
-            ],
-          }
-        : propertyKey
+    const where: Prisma.EmployeeWhereInput = {
+      AND: [
+        propertyKey
           ? {
               property: {
                 is: {
@@ -89,7 +70,50 @@ export async function GET(request: NextRequest) {
                 },
               },
             }
-          : undefined,
+          : {},
+        moduleKey && !isGlobalAdminModule(moduleKey)
+          ? {
+              departmentAssignments: {
+                some: {
+                  active: true,
+                    department: {
+                      departmentName: {
+                        in: [...moduleDepartmentNames],
+                      },
+                    },
+                },
+              },
+            }
+          : {},
+        query
+          ? {
+              OR: [
+                {
+                  displayName: {
+                    contains: query,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  firstName: {
+                    contains: query,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  lastName: {
+                    contains: query,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {},
+      ],
+    };
+
+    const employees = await prisma.employee.findMany({
+      where,
       select: {
         id: true,
         employeeId: true,
@@ -136,6 +160,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   const body = (await request.json()) as {
     propertyKey?: string;
+    moduleKey?: string;
     employeeId: string;
     firstName: string;
     lastName: string;
@@ -149,6 +174,13 @@ export async function POST(request: Request) {
   if (!departmentOption || !property) {
     return NextResponse.json(
       { error: "A valid property and department are required." },
+      { status: 400 },
+    );
+  }
+
+  if (body.moduleKey && !moduleAllowsDepartment(body.moduleKey, departmentOption.name)) {
+    return NextResponse.json(
+      { error: "That department does not belong to the active admin module." },
       { status: 400 },
     );
   }

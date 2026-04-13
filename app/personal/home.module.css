@@ -295,6 +295,12 @@
   min-height: 48px;
   border-color: color-mix(in srgb, var(--gold) 40%, transparent);
   color: color-mix(in srgb, var(--ivory-100) 82%, transparent);
+  gap: 10px;
+  text-decoration: none;
+}
+
+.attendanceReportButton span {
+  color: var(--gold-light);
 }
 
 .attendanceReportButton:hover:not(:disabled) {

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  ADMIN_MODULE_OPTIONS,
+  type AdminModuleKey,
+} from "@/lib/admin-modules";
 import type { PropertyAccessEntry, PropertyScopedRoleKey } from "@/lib/property-access";
 
 type EmployeeSearchResult = {
@@ -30,6 +34,8 @@ const ROLE_OPTIONS: { key: PropertyScopedRoleKey; label: string }[] = [
   { key: "MANAGER", label: "Manager" },
 ];
 
+const ACCESS_SCOPE_OPTIONS = ADMIN_MODULE_OPTIONS;
+
 function getPrimaryDepartment(employee: EmployeeSearchResult) {
   return (
     employee.departmentAssignments.find((assignment) => assignment.isPrimary)?.department
@@ -42,15 +48,24 @@ function getPrimaryDepartment(employee: EmployeeSearchResult) {
 export function SupportPropertyAccessManager({
   propertyKey,
   propertyName,
+  headingLabel = "Property Access",
+  title,
+  description = "Support controls who can enter this property’s admin workspace.",
+  grantButtonLabel = "Grant Property Access",
 }: {
   propertyKey: string;
   propertyName: string;
+  headingLabel?: string;
+  title?: string;
+  description?: string;
+  grantButtonLabel?: string;
 }) {
   const [query, setQuery] = useState("");
   const [employees, setEmployees] = useState<EmployeeSearchResult[]>([]);
   const [accessEntries, setAccessEntries] = useState<PropertyAccessEntry[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [selectedRoleKey, setSelectedRoleKey] = useState<PropertyScopedRoleKey>("ADMIN");
+  const [selectedModuleKey, setSelectedModuleKey] = useState<AdminModuleKey>("GAMING");
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -151,6 +166,7 @@ export function SupportPropertyAccessManager({
         body: JSON.stringify({
           employeeRecordId: selectedEmployee.id,
           roleKey: selectedRoleKey,
+          moduleKey: selectedModuleKey,
         }),
       });
       const data = (await response.json()) as { access?: PropertyAccessEntry; error?: string };
@@ -208,6 +224,8 @@ export function SupportPropertyAccessManager({
           employeeId: access.employeeId,
           displayName: access.displayName,
           roleKey: access.roleKey,
+          moduleKey: access.moduleKey,
+          moduleLabel: access.moduleLabel,
           propertyKey: access.propertyKey,
           propertyName: access.propertyName,
         }),
@@ -228,10 +246,10 @@ export function SupportPropertyAccessManager({
     <section className="result-card support-access-card">
       <div className="result-card-header">
         <div>
-          <p className="mini-label">Property Access</p>
-          <p className="mini-title">Admins and managers for {propertyName}</p>
+          <p className="mini-label">{headingLabel}</p>
+          <p className="mini-title">{title ?? `Admins and managers for ${propertyName}`}</p>
           <p className="mini-copy">
-            Support controls who can enter this property’s admin workspace.
+            {description}
           </p>
         </div>
       </div>
@@ -256,69 +274,95 @@ export function SupportPropertyAccessManager({
       <div className="support-access-grid">
         <div className="mini-card support-access-panel">
           <p className="mini-label">Grant Access</p>
-          <label className="field-label" htmlFor={`support-access-search-${propertyKey}`}>
-            Find Employee
-          </label>
-          <input
-            id={`support-access-search-${propertyKey}`}
-            className="text-input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={`Search ${propertyName} employees`}
-          />
+          <div className="support-access-form">
+            <div className="field-stack support-access-section">
+              <label className="field-label" htmlFor={`support-access-search-${propertyKey}`}>
+                Find Employee
+              </label>
+              <input
+                id={`support-access-search-${propertyKey}`}
+                className="text-input"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={`Search ${propertyName} employees`}
+              />
+            </div>
 
-          <div className="support-access-search-results">
-            {loading ? (
-              <p className="mini-copy">Searching employees...</p>
-            ) : query.trim() ? (
-              employees.length > 0 ? (
-                employees.map((employee) => (
-                  <button
-                    key={employee.id}
-                    type="button"
-                    className={`result-card support-access-employee${selectedEmployeeId === employee.id ? " active" : ""}`}
-                    onClick={() => setSelectedEmployeeId(employee.id)}
-                  >
-                    <div>
-                      <p className="result-title">{employee.displayName}</p>
-                      <p className="result-subtitle">
-                        Employee ID {employee.employeeId} · {getPrimaryDepartment(employee)}
-                      </p>
-                    </div>
-                  </button>
-                ))
+            <div className="support-access-search-results support-access-section">
+              {loading ? (
+                <p className="mini-copy">Searching employees...</p>
+              ) : query.trim() ? (
+                employees.length > 0 ? (
+                  employees.map((employee) => (
+                    <button
+                      key={employee.id}
+                      type="button"
+                      className={`result-card support-access-employee${selectedEmployeeId === employee.id ? " active" : ""}`}
+                      onClick={() => setSelectedEmployeeId(employee.id)}
+                    >
+                      <div>
+                        <p className="result-title">{employee.displayName}</p>
+                        <p className="result-subtitle">
+                          Employee ID {employee.employeeId} · {getPrimaryDepartment(employee)}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="mini-copy">No employees matched that search.</p>
+                )
               ) : (
-                <p className="mini-copy">No employees matched that search.</p>
-              )
-            ) : (
-              <p className="mini-copy">Search by employee name before assigning access.</p>
-            )}
+                <p className="mini-copy">Search by employee name before assigning access.</p>
+              )}
+            </div>
+
+            <div className="field-stack support-access-section">
+              <label className="field-label" htmlFor={`support-access-role-${propertyKey}`}>
+                Access Level
+              </label>
+              <select
+                id={`support-access-role-${propertyKey}`}
+                className="text-input app-select-input"
+                value={selectedRoleKey}
+                onChange={(event) => setSelectedRoleKey(event.target.value as PropertyScopedRoleKey)}
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role.key} value={role.key}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field-stack support-access-section">
+              <label className="field-label" htmlFor={`support-access-module-${propertyKey}`}>
+                Department Scope
+              </label>
+              <select
+                id={`support-access-module-${propertyKey}`}
+                className="text-input app-select-input"
+                value={selectedModuleKey}
+                onChange={(event) => setSelectedModuleKey(event.target.value as AdminModuleKey)}
+              >
+                {ACCESS_SCOPE_OPTIONS.map((moduleOption) => (
+                  <option key={moduleOption.key} value={moduleOption.key}>
+                    {moduleOption.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="support-access-section support-access-submit-row">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleGrantAccess}
+                disabled={!selectedEmployee || assigning}
+              >
+                {assigning ? "Saving..." : grantButtonLabel}
+              </button>
+            </div>
           </div>
-
-          <label className="field-label" htmlFor={`support-access-role-${propertyKey}`}>
-            Access Level
-          </label>
-          <select
-            id={`support-access-role-${propertyKey}`}
-            className="text-input"
-            value={selectedRoleKey}
-            onChange={(event) => setSelectedRoleKey(event.target.value as PropertyScopedRoleKey)}
-          >
-            {ROLE_OPTIONS.map((role) => (
-              <option key={role.key} value={role.key}>
-                {role.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            className="primary-button"
-            onClick={handleGrantAccess}
-            disabled={!selectedEmployee || assigning}
-          >
-            {assigning ? "Saving..." : "Grant Property Access"}
-          </button>
         </div>
 
         <div className="mini-card support-access-panel">
@@ -330,7 +374,7 @@ export function SupportPropertyAccessManager({
                   <div>
                     <p className="result-title">{entry.displayName}</p>
                     <p className="result-subtitle">
-                      {entry.roleName} · Employee ID {entry.employeeId}
+                      {entry.moduleLabel} · {entry.roleName} · Employee ID {entry.employeeId}
                     </p>
                   </div>
                   <div className="support-access-entry-actions">

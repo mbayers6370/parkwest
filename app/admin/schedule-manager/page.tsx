@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import { AdminScheduleImport } from "@/components/admin-schedule-import";
+import { getAdminModuleLabel } from "@/lib/admin-modules";
 import {
   getScheduleEditOptions,
   getScheduleShiftFamily,
@@ -81,7 +82,10 @@ export default function AdminScheduleManagerPage() {
 
   useEffect(() => {
     const syncSchedules = () => {
-      const loaded = loadPublishedSchedules(adminProperty?.propertyKey);
+      const loaded = loadPublishedSchedules(
+        adminProperty?.propertyKey,
+        adminProperty?.moduleKey,
+      );
       setPublishedSchedules(loaded);
 
       const firstTitle = loaded[0] ? getPublishedScheduleTitle(loaded[0]) : null;
@@ -103,7 +107,7 @@ export default function AdminScheduleManagerPage() {
     }
 
     return () => window.removeEventListener(PUBLISHED_SCHEDULE_UPDATED_EVENT, syncSchedules);
-  }, [adminProperty?.propertyKey]);
+  }, [adminProperty?.moduleKey, adminProperty?.propertyKey]);
 
   const selectedSchedule =
     publishedSchedules.find((schedule) => getPublishedScheduleTitle(schedule) === selectedScheduleTitle) ??
@@ -188,7 +192,11 @@ export default function AdminScheduleManagerPage() {
       return;
     }
 
-    savePublishedSchedulesForProperty(adminProperty?.propertyKey, publishedSchedules);
+    savePublishedSchedulesForProperty(
+      adminProperty?.propertyKey,
+      adminProperty?.moduleKey,
+      publishedSchedules,
+    );
     appendAdminAuditEvent({
       category: "published_schedule",
       action: "Edited",
@@ -206,7 +214,11 @@ export default function AdminScheduleManagerPage() {
       return;
     }
 
-    removePublishedScheduleForProperty(adminProperty?.propertyKey, deleteTargetTitle);
+    removePublishedScheduleForProperty(
+      adminProperty?.propertyKey,
+      adminProperty?.moduleKey,
+      deleteTargetTitle,
+    );
     appendAdminAuditEvent({
       category: "published_schedule",
       action: "Deleted",
@@ -232,10 +244,14 @@ export default function AdminScheduleManagerPage() {
   return (
     <>
       <header className="admin-page-header">
-        <p className="admin-page-eyebrow">Manager / Admin</p>
+        <p className="admin-page-eyebrow">
+          {getAdminModuleLabel(adminProperty?.moduleKey)} Module
+        </p>
         <h1 className="admin-page-title">Schedule Manager</h1>
         <p className="admin-page-subtitle">
-          Import, review, and manage published weekly schedules for {adminProperty?.propertyName ?? "this property"}.
+          Import, review, and manage published weekly schedules for{" "}
+          {getAdminModuleLabel(adminProperty?.moduleKey)} at{" "}
+          {adminProperty?.propertyName ?? "this property"}.
         </p>
         <nav className="admin-page-tabs" aria-label="Schedule views">
           <button

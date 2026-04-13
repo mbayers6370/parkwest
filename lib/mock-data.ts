@@ -2,9 +2,10 @@ export const mockPropertyAccess: {
   propertyKey: string;
   employeeId: string;
   roleKey: "ADMIN" | "MANAGER";
+  moduleKey?: "GAMING" | "CAGE" | "F_AND_B" | "SECURITY" | "GM";
 }[] = [
-  { propertyKey: "580", employeeId: "10021", roleKey: "ADMIN" },
-  { propertyKey: "580", employeeId: "10077", roleKey: "ADMIN" },
+  { propertyKey: "580", employeeId: "10077", roleKey: "ADMIN", moduleKey: "GM" },
+  { propertyKey: "580", employeeId: "10488", roleKey: "ADMIN", moduleKey: "GAMING" },
 ];
 
 export const mockEmployees = [

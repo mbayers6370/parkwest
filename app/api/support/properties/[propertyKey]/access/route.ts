@@ -26,6 +26,7 @@ export async function POST(
     const body = (await request.json()) as {
       employeeRecordId?: string;
       roleKey?: string;
+      moduleKey?: string;
     };
 
     if (!body.employeeRecordId || !body.roleKey) {
@@ -39,6 +40,7 @@ export async function POST(
       propertyKey,
       employeeRecordId: body.employeeRecordId,
       roleKey: body.roleKey,
+      moduleKey: body.moduleKey,
     });
 
     return NextResponse.json({ access });

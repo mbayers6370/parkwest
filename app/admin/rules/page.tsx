@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useAdminProperty } from "@/components/admin-property-provider";
+import { getAdminModuleLabel } from "@/lib/admin-modules";
 
 const SWAP_REQUEST_CUTOFF_OPTIONS = [
   "2 hours before shift start",
@@ -39,6 +41,7 @@ type RuleGroup = {
 };
 
 export default function AdminRulesPage() {
+  const adminProperty = useAdminProperty();
   const [swapRequestCutoff, setSwapRequestCutoff] = useState<(typeof SWAP_REQUEST_CUTOFF_OPTIONS)[number]>(
     "4 hours before shift start",
   );
@@ -67,12 +70,12 @@ export default function AdminRulesPage() {
     },
     {
       title: "Attendance & Points",
-      subtitle: "How points, PSL, and Reverse PSL should be tracked",
+      subtitle: "How absent, tardy, and early out attendance actions should be tracked",
       rules: [
-        { label: "Half Point", value: "Leave early", status: "default" },
-        { label: "Full Point", value: "Miss full shift", status: "default" },
-        { label: "PSL", value: "Call out or leave early", status: "default" },
-        { label: "Reverse PSL", value: "Come in later using PSL", status: "default" },
+        { label: "Early Out - 1/2 Point", value: "Leave early", status: "default" },
+        { label: "Absent 1 Point", value: "Miss full shift", status: "default" },
+        { label: "Absent - PSL", value: "Absent with PSL", status: "default" },
+        { label: "Tardy with use of PSL", value: "Come in later using PSL", status: "default" },
       ],
     },
   ];
@@ -80,7 +83,9 @@ export default function AdminRulesPage() {
   return (
     <>
       <header className="admin-page-header">
-        <p className="admin-page-eyebrow">Manager / Admin</p>
+        <p className="admin-page-eyebrow">
+          {getAdminModuleLabel(adminProperty?.moduleKey)} Module
+        </p>
         <h1 className="admin-page-title">Rules &amp; Settings</h1>
         <p className="admin-page-subtitle">
           Configure business rules that govern scheduling, attendance, and bidding
@@ -143,6 +148,7 @@ export default function AdminRulesPage() {
             </div>
           ))}
         </div>
+
       </div>
     </>
   );

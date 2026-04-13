@@ -5,6 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import {
+  getAdminModuleDepartmentNames,
+  getAdminModuleLabel,
+  isGlobalAdminModule,
+} from "@/lib/admin-modules";
+import {
   getAdminTimeOffRequestDisplaySegments,
   getAllTimeOffRequests,
   getCanonicalTimeOffRequestId,
@@ -78,6 +83,9 @@ export default function AdminRequestsPage() {
         if (adminProperty?.propertyKey) {
           params.set("propertyKey", adminProperty.propertyKey);
         }
+        if (adminProperty?.moduleKey) {
+          params.set("moduleKey", adminProperty.moduleKey);
+        }
 
         const response = await fetch(`/api/admin/employees?${params.toString()}`, {
           signal: controller.signal,
@@ -103,7 +111,7 @@ export default function AdminRequestsPage() {
     }
 
     return () => controller.abort();
-  }, [adminProperty?.propertyKey]);
+  }, [adminProperty?.moduleKey, adminProperty?.propertyKey]);
 
   const allRequests = useMemo(
     () => getAllTimeOffRequests(storedRequests),
@@ -154,6 +162,14 @@ export default function AdminRequestsPage() {
     () => groupAlreadySplitRequestsByMonthAndWeek(filteredRequests),
     [filteredRequests],
   );
+  const visibleDepartments = useMemo(() => {
+    if (isGlobalAdminModule(adminProperty?.moduleKey)) {
+      return EMPLOYEE_DEPARTMENT_OPTIONS;
+    }
+
+    const allowed = new Set(getAdminModuleDepartmentNames(adminProperty?.moduleKey));
+    return EMPLOYEE_DEPARTMENT_OPTIONS.filter((department) => allowed.has(department.name));
+  }, [adminProperty?.moduleKey]);
 
   function updateRequestStatus(
     request: TimeOffRequest,
@@ -226,10 +242,13 @@ export default function AdminRequestsPage() {
   return (
     <>
       <header className="admin-page-header">
-        <p className="admin-page-eyebrow">Manager / Admin</p>
+        <p className="admin-page-eyebrow">
+          {getAdminModuleLabel(adminProperty?.moduleKey)} Module
+        </p>
         <h1 className="admin-page-title">Requests</h1>
         <p className="admin-page-subtitle">
-          Review employee time-off requests for {adminProperty?.propertyName ?? "this property"}, grouped by Saturday-start weeks.
+          Review employee time-off requests for {getAdminModuleLabel(adminProperty?.moduleKey)} at{" "}
+          {adminProperty?.propertyName ?? "this property"}, grouped by Saturday-start weeks.
         </p>
         <nav className="admin-page-tabs" aria-label="Request filters">
           <button
@@ -263,9 +282,9 @@ export default function AdminRequestsPage() {
             className={`admin-page-tab${activeDepartment === "all" ? " active" : ""}`}
             onClick={() => setActiveDepartment("all")}
           >
-            All Departments
+            {isGlobalAdminModule(adminProperty?.moduleKey) ? "All Departments" : "This Module"}
           </button>
-          {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
+          {visibleDepartments.map((department) => (
             <button
               key={department.key}
               type="button"

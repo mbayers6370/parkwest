@@ -23,11 +23,11 @@ export type AttendanceEvent = {
 export const ATTENDANCE_EVENTS_STORAGE_KEY = "parkwest-attendance-events";
 
 export const ATTENDANCE_EVENT_LABELS: Record<AttendanceEventType, string> = {
-  call_out_point: "Full Point",
-  call_out_psl: "PSL",
-  reverse_psl: "Reverse PSL",
-  half_point: "Half Point",
-  psl_leave_early: "PSL Leave Early",
+  call_out_point: "Absent 1 Point",
+  call_out_psl: "Absent - PSL",
+  reverse_psl: "Tardy with use of PSL",
+  half_point: "Early Out - 1/2 Point",
+  psl_leave_early: "Early Out - PSL",
 };
 
 export const MOCK_ATTENDANCE_EVENTS: AttendanceEvent[] = [];
@@ -40,7 +40,7 @@ export function getAllowedPslHours(
   }
 
   if (eventType === "reverse_psl" || eventType === "psl_leave_early") {
-    return [2, 4, 6];
+    return [2, 4, 6, 8];
   }
 
   return [];
@@ -122,24 +122,19 @@ export function getAttendanceSummary(events: AttendanceEvent[]) {
   };
 }
 
+export function formatAttendanceEventLabel(
+  eventType: AttendanceEventType,
+  pslHours?: AttendancePslHours,
+) {
+  if (eventType === "reverse_psl" || eventType === "psl_leave_early") {
+    return `${ATTENDANCE_EVENT_LABELS[eventType]} ${pslHours ?? 0} Hours`;
+  }
+
+  return ATTENDANCE_EVENT_LABELS[eventType];
+}
+
 export function formatAttendanceEventDetail(event: AttendanceEvent) {
-  if (event.eventType === "call_out_point") {
-    return "Full Point";
-  }
-
-  if (event.eventType === "call_out_psl") {
-    return `${event.pslHours ?? 8}h PSL`;
-  }
-
-  if (event.eventType === "reverse_psl") {
-    return `${event.pslHours ?? 0}h Reverse PSL`;
-  }
-
-  if (event.eventType === "half_point") {
-    return "0.5 Point";
-  }
-
-  return `${event.pslHours ?? 0}h PSL`;
+  return formatAttendanceEventLabel(event.eventType, event.pslHours);
 }
 
 export function getLast24HourAttendanceEvents(

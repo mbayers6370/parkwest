@@ -54,7 +54,13 @@
 .support-access-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+.support-access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .support-access-search-results {
@@ -62,6 +68,7 @@
   flex-direction: column;
   gap: 10px;
   min-height: 92px;
+  margin-top: 4px;
 }
 
 .support-access-employee {
@@ -86,6 +93,23 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.support-access-panel .field-stack {
+  gap: 10px;
+}
+
+.support-access-panel .mini-copy {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.support-access-section + .support-access-section {
+  margin-top: 18px;
+}
+
+.support-access-submit-row {
+  padding-top: 6px;
 }
 
 @media (max-width: 900px) {

@@ -1,5 +1,11 @@
 import { WorkspaceKey } from "@prisma/client";
 import { isMockModeEnabled, mockEmployees, mockPropertyAccess } from "@/lib/mock-data";
+import {
+  ADMIN_MODULE_OPTIONS,
+  getAdminModuleLabel,
+  getAdminModuleOption,
+  type AdminModuleKey,
+} from "@/lib/admin-modules";
 import { prisma } from "@/lib/prisma";
 import { findDefaultPropertyByKey } from "@/lib/properties";
 
@@ -14,6 +20,8 @@ export type PropertyAccessEntry = {
   displayName: string;
   roleKey: PropertyScopedRoleKey;
   roleName: string;
+  moduleKey: AdminModuleKey;
+  moduleLabel: string;
   propertyKey: string;
   propertyName: string;
 };
@@ -25,6 +33,8 @@ export type AdminPropertySession = {
   roleKey: PropertyScopedRoleKey;
   propertyKey: string;
   propertyName: string;
+  moduleKey: AdminModuleKey;
+  moduleLabel: string;
 };
 
 const ROLE_DEFINITIONS: Record<PropertyScopedRoleKey, { roleName: string; description: string }> = {
@@ -38,26 +48,56 @@ const ROLE_DEFINITIONS: Record<PropertyScopedRoleKey, { roleName: string; descri
   },
 };
 
+function toScopedRoleIdentifier(roleKey: PropertyScopedRoleKey, moduleKey: AdminModuleKey) {
+  return moduleKey === "GM" ? roleKey : `${roleKey}_${moduleKey}`;
+}
+
+function parseScopedRoleIdentifier(roleIdentifier: string) {
+  const normalized = roleIdentifier.trim().toUpperCase();
+  const [rawRoleKey, ...moduleParts] = normalized.split("_");
+  const roleKey = normalizeRoleKey(rawRoleKey);
+
+  if (!roleKey) {
+    return null;
+  }
+
+  const moduleKey = getAdminModuleOption(moduleParts.join("_") || "GM").key;
+
+  return {
+    roleKey,
+    moduleKey,
+    moduleLabel: getAdminModuleLabel(moduleKey),
+  };
+}
+
 function normalizeRoleKey(value: string): PropertyScopedRoleKey | null {
   const normalized = value.trim().toUpperCase();
   return PROPERTY_SCOPED_ROLE_KEYS.find((roleKey) => roleKey === normalized) ?? null;
 }
 
-async function ensureRole(roleKey: PropertyScopedRoleKey) {
+async function ensureRole(roleKey: PropertyScopedRoleKey, moduleKey: AdminModuleKey) {
   const roleDefinition = ROLE_DEFINITIONS[roleKey];
+  const moduleLabel = getAdminModuleLabel(moduleKey);
+  const scopedRoleKey = toScopedRoleIdentifier(roleKey, moduleKey);
+  const scopedRoleName =
+    moduleKey === "GM" ? roleDefinition.roleName : `${moduleLabel} ${roleDefinition.roleName}`;
+  const scopedDescription =
+    moduleKey === "GM"
+      ? `Property-scoped ${roleDefinition.roleName.toLowerCase()} access across all departments`
+      : `${moduleLabel}-scoped ${roleDefinition.roleName.toLowerCase()} access`;
 
   return prisma.role.upsert({
     where: {
-      roleKey,
+      roleKey: scopedRoleKey,
     },
     update: {
-      roleName: roleDefinition.roleName,
-      description: roleDefinition.description,
+      roleName: scopedRoleName,
+      description: scopedDescription,
     },
     create: {
-      roleKey,
-      roleName: roleDefinition.roleName,
-      description: roleDefinition.description,
+      roleKey: scopedRoleKey,
+      roleName: scopedRoleName,
+      description: scopedDescription,
     },
   });
 }
@@ -89,6 +129,8 @@ function toMockAccessEntries(propertyKey: string) {
         displayName: employee.displayName,
         roleKey: entry.roleKey,
         roleName: ROLE_DEFINITIONS[entry.roleKey].roleName,
+        moduleKey: entry.moduleKey ?? "GM",
+        moduleLabel: getAdminModuleLabel(entry.moduleKey ?? "GM"),
         propertyKey: property.key,
         propertyName: property.name,
       } satisfies PropertyAccessEntry;
@@ -111,9 +153,12 @@ export async function getPropertyAccessEntries(propertyKey: string) {
     where: {
       active: true,
       role: {
-        roleKey: {
-          in: [...PROPERTY_SCOPED_ROLE_KEYS],
-        },
+        OR: [
+          { roleKey: "ADMIN" },
+          { roleKey: "MANAGER" },
+          { roleKey: { startsWith: "ADMIN_" } },
+          { roleKey: { startsWith: "MANAGER_" } },
+        ],
       },
       employee: {
         property: {
@@ -149,10 +194,10 @@ export async function getPropertyAccessEntries(propertyKey: string) {
   });
 
   return assignments.flatMap((assignment) => {
-    const roleKey = normalizeRoleKey(assignment.role.roleKey);
+    const parsedRole = parseScopedRoleIdentifier(assignment.role.roleKey);
     const propertyRecord = assignment.employee.property;
 
-    if (!roleKey || !propertyRecord) {
+    if (!parsedRole || !propertyRecord) {
       return [];
     }
 
@@ -162,8 +207,10 @@ export async function getPropertyAccessEntries(propertyKey: string) {
         employeeRecordId: assignment.employee.id,
         employeeId: assignment.employee.employeeId,
         displayName: assignment.employee.displayName,
-        roleKey,
+        roleKey: parsedRole.roleKey,
         roleName: assignment.role.roleName,
+        moduleKey: parsedRole.moduleKey,
+        moduleLabel: parsedRole.moduleLabel,
         propertyKey: propertyRecord.propertyKey,
         propertyName: propertyRecord.propertyName,
       },
@@ -175,9 +222,11 @@ export async function grantPropertyAccess(args: {
   propertyKey: string;
   employeeRecordId: string;
   roleKey: string;
+  moduleKey?: string;
 }) {
   const property = findDefaultPropertyByKey(args.propertyKey);
   const roleKey = normalizeRoleKey(args.roleKey);
+  const moduleKey = getAdminModuleOption(args.moduleKey).key;
 
   if (!property || !roleKey) {
     throw new Error("A valid property and role are required.");
@@ -200,7 +249,12 @@ export async function grantPropertyAccess(args: {
       employeeId: employee.employeeId,
       displayName: employee.displayName,
       roleKey,
-      roleName: ROLE_DEFINITIONS[roleKey].roleName,
+      roleName:
+        moduleKey === "GM"
+          ? ROLE_DEFINITIONS[roleKey].roleName
+          : `${getAdminModuleLabel(moduleKey)} ${ROLE_DEFINITIONS[roleKey].roleName}`,
+      moduleKey,
+      moduleLabel: getAdminModuleLabel(moduleKey),
       propertyKey: property.key,
       propertyName: property.name,
     } satisfies PropertyAccessEntry;
@@ -232,7 +286,7 @@ export async function grantPropertyAccess(args: {
     throw new Error("That employee does not belong to this property.");
   }
 
-  const role = await ensureRole(roleKey);
+  const role = await ensureRole(roleKey, moduleKey);
   const existingAssignment = await prisma.employeeRoleAssignment.findFirst({
     where: {
       employeeIdFk: employee.id,
@@ -292,6 +346,8 @@ export async function grantPropertyAccess(args: {
     displayName: employee.displayName,
     roleKey,
     roleName: role.roleName,
+    moduleKey,
+    moduleLabel: getAdminModuleLabel(moduleKey),
     propertyKey: employee.property.propertyKey,
     propertyName: employee.property.propertyName,
   } satisfies PropertyAccessEntry;
@@ -347,9 +403,12 @@ export async function revokePropertyAccess(args: {
       employeeIdFk: assignment.employeeIdFk,
       active: true,
       role: {
-        roleKey: {
-          in: [...PROPERTY_SCOPED_ROLE_KEYS],
-        },
+        OR: [
+          { roleKey: "ADMIN" },
+          { roleKey: "MANAGER" },
+          { roleKey: { startsWith: "ADMIN_" } },
+          { roleKey: { startsWith: "MANAGER_" } },
+        ],
       },
     },
   });

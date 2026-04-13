@@ -5,6 +5,10 @@ import {
   loadCurrentAndFuturePublishedScheduleEntries,
   PUBLISHED_SCHEDULE_UPDATED_EVENT,
 } from "@/lib/published-schedule-store";
+import {
+  FLOOR_WORKSPACE_MODULE_KEY,
+  FLOOR_WORKSPACE_PROPERTY_KEY,
+} from "@/lib/floor-workspace";
 import type { ScheduleEntry } from "@/lib/mock-schedule";
 import { getScheduleShiftFamily } from "@/lib/schedule-color-system";
 import scheduleStyles from "./schedule.module.css";
@@ -332,7 +336,12 @@ export default function FloorSchedulePage() {
 
   useEffect(() => {
     const syncScheduleEntries = () => {
-      setScheduleEntries(loadCurrentAndFuturePublishedScheduleEntries("580"));
+      setScheduleEntries(
+        loadCurrentAndFuturePublishedScheduleEntries(
+          FLOOR_WORKSPACE_PROPERTY_KEY,
+          FLOOR_WORKSPACE_MODULE_KEY,
+        ),
+      );
     };
 
     syncScheduleEntries();

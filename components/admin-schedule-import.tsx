@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useAdminProperty } from "@/components/admin-property-provider";
 import { CircleAlert, FileSpreadsheet } from "lucide-react";
+import { getAdminModuleLabel } from "@/lib/admin-modules";
 import { appendAdminAuditEvent } from "@/lib/admin-audit-log-store";
 import { getScheduleShiftFamily, isScheduleStatusToken, type ScheduleShiftFamily } from "@/lib/schedule-color-system";
 import {
@@ -130,7 +131,10 @@ export function AdminScheduleImport() {
       return;
     }
 
-    const publishedSchedules = loadPublishedSchedules(adminProperty?.propertyKey);
+    const publishedSchedules = loadPublishedSchedules(
+      adminProperty?.propertyKey,
+      adminProperty?.moduleKey,
+    );
     const incomingWeek = preview.sheets[0]?.displayName ?? preview.fileName;
     const currentSchedule = publishedSchedules.find(
       (entry) => getPublishedScheduleTitle(entry) === incomingWeek || entry.fileName === preview.fileName,
@@ -156,6 +160,8 @@ export function AdminScheduleImport() {
     upsertPublishedSchedule({
       propertyKey: adminProperty?.propertyKey,
       propertyName: adminProperty?.propertyName,
+      moduleKey: adminProperty?.moduleKey,
+      moduleLabel: getAdminModuleLabel(adminProperty?.moduleKey),
       fileName: preview.fileName,
       sheetNames: preview.sheetNames,
       sheets: preview.sheets,
@@ -185,7 +191,8 @@ export function AdminScheduleImport() {
             <div>
               <p className="schedule-import-upload-title">Upload schedule file</p>
               <p className="schedule-import-upload-subtitle">
-                Select the weekly spreadsheet for {adminProperty?.propertyName ?? "this property"} and preview it before publishing.
+                Select the weekly spreadsheet for {getAdminModuleLabel(adminProperty?.moduleKey)} at{" "}
+                {adminProperty?.propertyName ?? "this property"} and preview it before publishing.
               </p>
             </div>
           </div>

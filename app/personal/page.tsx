@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, CircleAlert, Square, SquareCheckBig, X } from "lucide-react";
+import { Check, ChevronRight, CircleAlert, PhoneOutgoing, Square, SquareCheckBig, X } from "lucide-react";
 import { OPEN_SHIFT_POSTS } from "@/lib/open-shifts";
 import {
+  ATTENDANCE_EVENT_LABELS,
+  formatAttendanceEventLabel,
   getAllAttendanceEvents,
   getAllowedPslHours,
   sanitizeAttendancePslHours,
@@ -104,9 +106,9 @@ const ATTENDANCE_OPTIONS: Array<{
   value: AttendanceEventType;
   label: string;
 }> = [
-  { value: "call_out_point", label: "Call Out - 1 Point" },
-  { value: "call_out_psl", label: "Call Out - PSL" },
-  { value: "reverse_psl", label: "Reverse PSL" },
+  { value: "call_out_point", label: ATTENDANCE_EVENT_LABELS.call_out_point },
+  { value: "call_out_psl", label: ATTENDANCE_EVENT_LABELS.call_out_psl },
+  { value: "reverse_psl", label: ATTENDANCE_EVENT_LABELS.reverse_psl },
 ];
 
 export default function PersonalHomePage() {
@@ -380,16 +382,15 @@ export default function PersonalHomePage() {
               </div>
             ) : (
               <div className={styles.attendanceReportActions}>
-                <button
-                  type="button"
+                <a
+                  href="tel:+18775808580"
                   className={`primary-button ${styles.attendanceReportButton}`}
-                  onClick={() => setIsAttendanceOpen(true)}
-                  disabled={!hasAtLeastTwoHours}
                 >
-                  Request Attendance Change
-                </button>
+                  <PhoneOutgoing size={16} aria-hidden="true" />
+                  <span>Call Casino 580</span>
+                </a>
                 <p className={styles.attendanceReportHelper}>
-                  Attendance changes must be submitted at least 2 hours before your scheduled shift.
+                  Calling in requires at least 2 hours notice before your scheduled shift. Casino 580: (877) 580-8580
                 </p>
               </div>
             )}
@@ -775,13 +776,5 @@ export default function PersonalHomePage() {
 }
 
 function formatAttendanceSummary(event: AttendanceEvent) {
-  if (event.eventType === "call_out_point") {
-    return "Full Point";
-  }
-
-  if (event.eventType === "call_out_psl") {
-    return `PSL · ${event.pslHours} Hours`;
-  }
-
-  return `Reverse PSL - ${event.pslHours}h`;
+  return formatAttendanceEventLabel(event.eventType, event.pslHours);
 }

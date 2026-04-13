@@ -8,6 +8,8 @@ export const PUBLISHED_SCHEDULE_UPDATED_EVENT = "parkwest-published-schedule-upd
 export type PublishedSchedulePreview = {
   propertyKey?: string;
   propertyName?: string;
+  moduleKey?: string;
+  moduleLabel?: string;
   fileName: string;
   sheetNames: string[];
   sheets: {
@@ -32,7 +34,7 @@ export function getPublishedScheduleTitle(preview: PublishedSchedulePreview) {
   return preview.sheets[0]?.displayName ?? preview.fileName;
 }
 
-export function loadPublishedSchedules(propertyKey?: string) {
+export function loadPublishedSchedules(propertyKey?: string, moduleKey?: string) {
   if (typeof window === "undefined") {
     return [] as PublishedSchedulePreview[];
   }
@@ -47,19 +49,29 @@ export function loadPublishedSchedules(propertyKey?: string) {
     const parsed = JSON.parse(raw) as PublishedSchedulePreview[] | PublishedSchedulePreview;
 
     if (Array.isArray(parsed)) {
-      return propertyKey
-        ? parsed.filter(
-            (entry) => (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase(),
-          )
-        : parsed;
+      return parsed.filter((entry) => {
+        const matchesProperty = propertyKey
+          ? (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase()
+          : true;
+        const matchesModule = moduleKey
+          ? (entry.moduleKey ?? "").toUpperCase() === moduleKey.toUpperCase()
+          : true;
+
+        return matchesProperty && matchesModule;
+      });
     }
 
     const list = parsed ? [parsed] : [];
-    return propertyKey
-      ? list.filter(
-          (entry) => (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase(),
-        )
-      : list;
+    return list.filter((entry) => {
+      const matchesProperty = propertyKey
+        ? (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase()
+        : true;
+      const matchesModule = moduleKey
+        ? (entry.moduleKey ?? "").toUpperCase() === moduleKey.toUpperCase()
+        : true;
+
+      return matchesProperty && matchesModule;
+    });
   } catch {
     return [] as PublishedSchedulePreview[];
   }
@@ -76,6 +88,7 @@ export function savePublishedSchedules(previews: PublishedSchedulePreview[]) {
 
 export function savePublishedSchedulesForProperty(
   propertyKey: string | undefined,
+  moduleKey: string | undefined,
   previews: PublishedSchedulePreview[],
 ) {
   if (!propertyKey) {
@@ -85,7 +98,11 @@ export function savePublishedSchedulesForProperty(
 
   const existing = loadPublishedSchedules();
   const otherProperties = existing.filter(
-    (entry) => (entry.propertyKey ?? "").toLowerCase() !== propertyKey.toLowerCase(),
+    (entry) =>
+      !(
+        (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase() &&
+        (moduleKey ? (entry.moduleKey ?? "").toUpperCase() === moduleKey.toUpperCase() : true)
+      ),
   );
 
   savePublishedSchedules([...otherProperties, ...previews]);
@@ -112,6 +129,7 @@ export function upsertPublishedSchedule(preview: PublishedSchedulePreview) {
 
 export function removePublishedScheduleForProperty(
   propertyKey: string | undefined,
+  moduleKey: string | undefined,
   scheduleTitle: string,
 ) {
   const existing = loadPublishedSchedules();
@@ -119,8 +137,11 @@ export function removePublishedScheduleForProperty(
     const matchesProperty = propertyKey
       ? (entry.propertyKey ?? "").toLowerCase() === propertyKey.toLowerCase()
       : true;
+    const matchesModule = moduleKey
+      ? (entry.moduleKey ?? "").toUpperCase() === moduleKey.toUpperCase()
+      : true;
 
-    if (!matchesProperty) {
+    if (!matchesProperty || !matchesModule) {
       return true;
     }
 
@@ -306,12 +327,12 @@ function buildEntriesFromPreview(preview: PublishedSchedulePreview): ScheduleEnt
   return entries;
 }
 
-export function loadPublishedScheduleEntries(propertyKey?: string) {
-  return loadPublishedSchedules(propertyKey).flatMap(buildEntriesFromPreview);
+export function loadPublishedScheduleEntries(propertyKey?: string, moduleKey?: string) {
+  return loadPublishedSchedules(propertyKey, moduleKey).flatMap(buildEntriesFromPreview);
 }
 
-export function loadLatestPublishedScheduleEntries(propertyKey?: string) {
-  const latest = loadPublishedSchedules(propertyKey)[0];
+export function loadLatestPublishedScheduleEntries(propertyKey?: string, moduleKey?: string) {
+  const latest = loadPublishedSchedules(propertyKey, moduleKey)[0];
 
   if (!latest) {
     return [] as ScheduleEntry[];
@@ -322,6 +343,7 @@ export function loadLatestPublishedScheduleEntries(propertyKey?: string) {
 
 export function loadCurrentAndFuturePublishedScheduleEntries(
   propertyKey?: string,
+  moduleKey?: string,
   baseDate = new Date(),
 ) {
   const date = new Date(baseDate);
@@ -336,7 +358,7 @@ export function loadCurrentAndFuturePublishedScheduleEntries(
     currentWeekStart.getDate(),
   );
 
-  return loadPublishedScheduleEntries(propertyKey).filter(
+  return loadPublishedScheduleEntries(propertyKey, moduleKey).filter(
     (entry) => entry.shiftDate >= currentWeekStartIso,
   );
 }

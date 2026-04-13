@@ -10,6 +10,8 @@ import {
   X,
 } from "lucide-react";
 import {
+  ATTENDANCE_EVENT_LABELS,
+  formatAttendanceEventLabel,
   getAllAttendanceEvents,
   getAttendanceEventsForDate,
   getAllowedPslHours,
@@ -65,6 +67,10 @@ import {
   SPECIALTY_SCHEDULE_UPDATED_EVENT,
   saveStoredSpecialtySchedule,
 } from "@/lib/specialty-schedule-store";
+import {
+  FLOOR_WORKSPACE_MODULE_KEY,
+  FLOOR_WORKSPACE_PROPERTY_KEY,
+} from "@/lib/floor-workspace";
 import pageStyles from "./page.module.css";
 import sharedStyles from "./floor-shared.module.css";
 
@@ -450,7 +456,10 @@ export default function OnTheFloorNowPage() {
       setGiveawayRequests(loadStoredShiftGiveawayRequests());
     };
     const syncScheduleEntries = () => {
-      const publishedEntries = loadCurrentAndFuturePublishedScheduleEntries("580");
+      const publishedEntries = loadCurrentAndFuturePublishedScheduleEntries(
+        FLOOR_WORKSPACE_PROPERTY_KEY,
+        FLOOR_WORKSPACE_MODULE_KEY,
+      );
       setScheduleEntries(publishedEntries);
     };
     const syncScheduleOverrides = () => {
@@ -1215,7 +1224,7 @@ export default function OnTheFloorNowPage() {
                   <div>
                     <p className={`${styles.floorSectionTitle} ${styles.floorSectionTitleDrenched}`}>Attendance Reports</p>
                     <p className={`${styles.floorSectionSubtitle} ${styles.floorSectionSubtitleDrenched}`}>
-                      Search today&apos;s scheduled dealers, floor, and chip runners and log leave-early changes.
+                      Search today&apos;s scheduled dealers, floor, and chip runners and log early out changes.
                     </p>
                   </div>
                 </div>
@@ -1284,7 +1293,7 @@ export default function OnTheFloorNowPage() {
                             )}
                             onClick={() => setNewAttendanceType("call_out_point")}
                           >
-                            1 Point
+                            {ATTENDANCE_EVENT_LABELS.call_out_point}
                           </button>
                           <button
                             type="button"
@@ -1296,7 +1305,7 @@ export default function OnTheFloorNowPage() {
                             )}
                             onClick={() => setNewAttendanceType("half_point")}
                           >
-                            Half Point
+                            {ATTENDANCE_EVENT_LABELS.half_point}
                           </button>
                           <button
                             type="button"
@@ -1308,7 +1317,7 @@ export default function OnTheFloorNowPage() {
                             )}
                             onClick={() => setNewAttendanceType("psl_leave_early")}
                           >
-                            PSL Leave Early
+                            {ATTENDANCE_EVENT_LABELS.psl_leave_early}
                           </button>
                         </div>
                       </div>
@@ -1821,7 +1830,7 @@ export default function OnTheFloorNowPage() {
                     )}
                     onClick={() => setEditAttendanceType("call_out_psl")}
                   >
-                    PSL
+                    {ATTENDANCE_EVENT_LABELS.call_out_psl}
                   </button>
                   <button
                     type="button"
@@ -1832,7 +1841,7 @@ export default function OnTheFloorNowPage() {
                     )}
                     onClick={() => setEditAttendanceType("reverse_psl")}
                   >
-                    Reverse PSL
+                    {ATTENDANCE_EVENT_LABELS.reverse_psl}
                   </button>
                   <button
                     type="button"
@@ -1844,7 +1853,7 @@ export default function OnTheFloorNowPage() {
                     )}
                     onClick={() => setEditAttendanceType("half_point")}
                   >
-                    Half Point
+                    {ATTENDANCE_EVENT_LABELS.half_point}
                   </button>
                   <button
                     type="button"
@@ -1855,7 +1864,7 @@ export default function OnTheFloorNowPage() {
                     )}
                     onClick={() => setEditAttendanceType("psl_leave_early")}
                   >
-                    PSL Leave Early
+                    {ATTENDANCE_EVENT_LABELS.psl_leave_early}
                   </button>
                 </div>
               </div>
@@ -2013,21 +2022,5 @@ function getShiftEndLabel(startLabel: string) {
 }
 
 function getAttendanceActionLabel(event: AttendanceEvent) {
-  if (event.eventType === "call_out_point") {
-    return "Full Point";
-  }
-
-  if (event.eventType === "call_out_psl") {
-    return "PSL";
-  }
-
-  if (event.eventType === "reverse_psl") {
-    return "Reverse PSL";
-  }
-
-  if (event.eventType === "half_point") {
-    return "Half Point";
-  }
-
-  return "PSL Leave Early";
+  return formatAttendanceEventLabel(event.eventType, event.pslHours);
 }

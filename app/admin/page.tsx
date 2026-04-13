@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAdminProperty } from "@/components/admin-property-provider";
+import { getAdminModuleLabel } from "@/lib/admin-modules";
 import {
   CalendarDays,
   CircleAlert,
@@ -174,6 +175,7 @@ export default function AdminOverviewPage() {
         const params = new URLSearchParams({
           all: "1",
           propertyKey: adminProperty.propertyKey,
+          moduleKey: adminProperty.moduleKey,
         });
         const response = await fetch(`/api/admin/employees?${params.toString()}`, {
           signal: controller.signal,
@@ -192,7 +194,7 @@ export default function AdminOverviewPage() {
     loadEmployees();
 
     return () => controller.abort();
-  }, [adminProperty?.propertyKey]);
+  }, [adminProperty?.moduleKey, adminProperty?.propertyKey]);
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -286,10 +288,13 @@ export default function AdminOverviewPage() {
   return (
     <>
       <header className="admin-page-header">
-        <p className="admin-page-eyebrow">Manager / Admin</p>
+        <p className="admin-page-eyebrow">
+          {getAdminModuleLabel(adminProperty?.moduleKey)} Module
+        </p>
         <h1 className="admin-page-title">Overview</h1>
         <p className="admin-page-subtitle">
-          {today} · {adminProperty?.propertyName ?? "This property"}
+          {today} · {getAdminModuleLabel(adminProperty?.moduleKey)} ·{" "}
+          {adminProperty?.propertyName ?? "This property"}
         </p>
       </header>
 
@@ -471,7 +476,7 @@ export default function AdminOverviewPage() {
             <div className="admin-card-header">
               <div>
                 <p className="admin-card-title">Attendance 24-Hour Report</p>
-                <p className="admin-card-subtitle">Call outs, reverse PSL, and leave-early changes in the last 24 hours</p>
+                <p className="admin-card-subtitle">Absent, tardy with PSL, and early out changes in the last 24 hours</p>
               </div>
               <Link href="/admin/audit-log" className="secondary-button" style={{ fontSize: "var(--text-sm-plus)" }}>
                 Daily Log
@@ -482,7 +487,7 @@ export default function AdminOverviewPage() {
                 <div className="data-row">
                   <div className="data-row-main">
                     <p className="data-row-title">Call Outs</p>
-                    <p className="data-row-sub">1 point and PSL call outs combined</p>
+                    <p className="data-row-sub">Absent 1 Point and Absent - PSL entries combined</p>
                   </div>
                   <div className="data-row-right">
                     <span className="badge warning">{attendanceSummary.callOuts}</span>
@@ -490,8 +495,8 @@ export default function AdminOverviewPage() {
                 </div>
                 <div className="data-row">
                   <div className="data-row-main">
-                    <p className="data-row-title">Reverse PSL</p>
-                    <p className="data-row-sub">Delayed starts reported by employees</p>
+                    <p className="data-row-title">Tardy with use of PSL</p>
+                    <p className="data-row-sub">Late arrivals reported using PSL hours</p>
                   </div>
                   <div className="data-row-right">
                     <span className="badge gold">{attendanceSummary.reversePsl}</span>
@@ -499,8 +504,8 @@ export default function AdminOverviewPage() {
                 </div>
                 <div className="data-row">
                   <div className="data-row-main">
-                    <p className="data-row-title">Leave Early</p>
-                    <p className="data-row-sub">Half points and PSL leave-early reports</p>
+                    <p className="data-row-title">Early Out</p>
+                    <p className="data-row-sub">Early Out - 1/2 Point and Early Out - PSL reports</p>
                   </div>
                   <div className="data-row-right">
                     <span className="badge warning">{attendanceSummary.leaveEarly}</span>

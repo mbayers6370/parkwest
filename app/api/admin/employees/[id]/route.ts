@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { moduleAllowsDepartment } from "@/lib/admin-modules";
 import { findDepartmentOptionByName } from "@/lib/employee-departments";
 import { isMockModeEnabled } from "@/lib/mock-data";
 import { findDefaultPropertyByKey } from "@/lib/properties";
@@ -11,6 +12,7 @@ export async function PATCH(
   const { id } = await context.params;
   const body = (await request.json()) as {
     propertyKey?: string;
+    moduleKey?: string;
     employeeId: string;
     firstName: string;
     lastName: string;
@@ -24,6 +26,13 @@ export async function PATCH(
   if (!departmentOption || !property) {
     return NextResponse.json(
       { error: "A valid property and department are required." },
+      { status: 400 },
+    );
+  }
+
+  if (body.moduleKey && !moduleAllowsDepartment(body.moduleKey, departmentOption.name)) {
+    return NextResponse.json(
+      { error: "That department does not belong to the active admin module." },
       { status: 400 },
     );
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getAdminModuleDepartmentNames, isGlobalAdminModule } from "@/lib/admin-modules";
 import { EMPLOYEE_DEPARTMENT_OPTIONS } from "@/lib/employee-departments";
 
 type EmployeeSearchResult = {
@@ -22,6 +23,7 @@ type EmployeeSearchResult = {
 type AdminEmployeeDirectoryProps = {
   propertyKey?: string;
   propertyName?: string;
+  moduleKey?: string;
 };
 
 type EmployeeResponse = {
@@ -71,11 +73,13 @@ function toFormState(employee: EmployeeSearchResult): EmployeeFormState {
 type AdminEmployeeManagerProps = {
   propertyKey?: string;
   propertyName?: string;
+  moduleKey?: string;
 };
 
 export function AdminEmployeeManager({
   propertyKey,
   propertyName,
+  moduleKey,
 }: AdminEmployeeManagerProps) {
   const [query, setQuery] = useState("");
   const [employees, setEmployees] = useState<EmployeeSearchResult[]>([]);
@@ -90,6 +94,17 @@ export function AdminEmployeeManager({
   const [createForm, setCreateForm] = useState<EmployeeFormState>(emptyForm);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EmployeeFormState>(emptyForm);
+  const availableDepartmentOptions = useMemo(() => {
+    if (isGlobalAdminModule(moduleKey)) {
+      return EMPLOYEE_DEPARTMENT_OPTIONS;
+    }
+
+    const allowedDepartments = new Set(getAdminModuleDepartmentNames(moduleKey));
+
+    return EMPLOYEE_DEPARTMENT_OPTIONS.filter((department) =>
+      allowedDepartments.has(department.name),
+    );
+  }, [moduleKey]);
   const employeeSearchUrl = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -101,8 +116,12 @@ export function AdminEmployeeManager({
       params.set("propertyKey", propertyKey);
     }
 
+    if (moduleKey) {
+      params.set("moduleKey", moduleKey);
+    }
+
     return `/api/admin/employees?${params.toString()}`;
-  }, [propertyKey, query]);
+  }, [moduleKey, propertyKey, query]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,6 +190,30 @@ export function AdminEmployeeManager({
     return () => window.clearTimeout(timeout);
   }, [editMessage, resetMessage]);
 
+  useEffect(() => {
+    const validDepartments = new Set<string>(
+      availableDepartmentOptions.map((department) => department.name),
+    );
+
+    setCreateForm((current) =>
+      current.department && !validDepartments.has(current.department)
+        ? {
+            ...current,
+            department: availableDepartmentOptions[0]?.name ?? "",
+          }
+        : current,
+    );
+
+    setEditForm((current) =>
+      current.department && !validDepartments.has(current.department)
+        ? {
+            ...current,
+            department: availableDepartmentOptions[0]?.name ?? "",
+          }
+        : current,
+    );
+  }, [availableDepartmentOptions]);
+
   async function refreshSearch() {
     const response = await fetch(employeeSearchUrl);
     const data = (await response.json()) as EmployeeResponse;
@@ -194,6 +237,7 @@ export function AdminEmployeeManager({
         body: JSON.stringify({
           ...createForm,
           propertyKey,
+          moduleKey,
         }),
       });
 
@@ -236,6 +280,7 @@ export function AdminEmployeeManager({
         body: JSON.stringify({
           ...editForm,
           propertyKey,
+          moduleKey,
         }),
       });
 
@@ -366,7 +411,7 @@ export function AdminEmployeeManager({
                   required
                 >
                   <option value="">Select department</option>
-                  {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
+                  {availableDepartmentOptions.map((department) => (
                     <option key={department.key} value={department.name}>
                       {department.name}
                     </option>
@@ -536,7 +581,7 @@ export function AdminEmployeeManager({
                   required
                 >
                   <option value="">Select department</option>
-                  {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
+                  {availableDepartmentOptions.map((department) => (
                     <option key={department.key} value={department.name}>
                       {department.name}
                     </option>
@@ -577,6 +622,7 @@ export function AdminEmployeeManager({
 export function AdminEmployeeDirectory({
   propertyKey,
   propertyName,
+  moduleKey,
 }: AdminEmployeeDirectoryProps) {
   const [query, setQuery] = useState("");
   const [employees, setEmployees] = useState<EmployeeSearchResult[]>([]);
@@ -592,8 +638,12 @@ export function AdminEmployeeDirectory({
       params.set("propertyKey", propertyKey);
     }
 
+    if (moduleKey) {
+      params.set("moduleKey", moduleKey);
+    }
+
     return `/api/admin/employees?${params.toString()}`;
-  }, [propertyKey]);
+  }, [moduleKey, propertyKey]);
 
   useEffect(() => {
     const controller = new AbortController();

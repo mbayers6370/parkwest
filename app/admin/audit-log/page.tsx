@@ -123,17 +123,17 @@ export default function AdminAuditLogPage() {
               <div className="stat-card">
                 <p className="stat-label">Call Outs</p>
                 <p className="stat-value warn">{summary.callOuts}</p>
-                <p className="stat-meta">PSL and 1-point full shift call outs</p>
+                <p className="stat-meta">Absent 1 Point and Absent - PSL entries</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Reverse PSL</p>
+                <p className="stat-label">Tardy with use of PSL</p>
                 <p className="stat-value">{summary.reversePsl}</p>
-                <p className="stat-meta">Delayed starts in 2-hour increments</p>
+                <p className="stat-meta">Late arrivals recorded with 2, 4, 6, or 8 PSL hours</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Leave Early</p>
+                <p className="stat-label">Early Out</p>
                 <p className="stat-value ok">{summary.leaveEarly}</p>
-                <p className="stat-meta">Half points and PSL leave-early reports</p>
+                <p className="stat-meta">Early Out - 1/2 Point and Early Out - PSL reports</p>
               </div>
             </div>
 

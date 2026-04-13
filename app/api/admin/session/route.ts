@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminModuleLabel, getAdminModuleOption } from "@/lib/admin-modules";
-import {
-  ADMIN_PROPERTY_SESSION_COOKIE,
-} from "@/lib/admin-session";
+import { ADMIN_PROPERTY_SESSION_COOKIE } from "@/lib/admin-session";
 import type { AdminPropertySession } from "@/lib/property-access";
 
 export async function POST(request: Request) {
@@ -25,7 +23,7 @@ export async function POST(request: Request) {
       moduleLabel: body.moduleLabel?.trim() || getAdminModuleLabel(moduleOption.key),
     };
 
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({ ok: true, session });
     response.cookies.set(ADMIN_PROPERTY_SESSION_COOKIE, JSON.stringify(session), {
       httpOnly: true,
       sameSite: "lax",
@@ -34,7 +32,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     return NextResponse.json(
-      { error: (error as Error).message || "Admin session could not be started." },
+      { error: (error as Error).message || "Admin session could not be updated." },
       { status: 500 },
     );
   }

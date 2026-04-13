@@ -186,12 +186,12 @@ export default function PersonalSchedulePage() {
     { label: "Days Off", value: String(daysOff), badgeClass: "warning" },
     { label: "Total Hours", value: `${totalHours}h`, badgeClass: "gold" },
     {
-      label: "Full Points Used",
+      label: "Absent 1 Point",
       value: String(weekAttendanceSummary.pointCallOuts),
       badgeClass: "danger",
     },
     {
-      label: "Half Points Used",
+      label: "Early Out - 1/2 Point",
       value: String(weekAttendanceSummary.halfPoints),
       badgeClass: "warning",
     },
@@ -201,7 +201,7 @@ export default function PersonalSchedulePage() {
       badgeClass: "gold",
     },
     {
-      label: "Reverse PSL Uses",
+      label: "Tardy with use of PSL",
       value: String(weekAttendanceSummary.reversePsl),
       badgeClass: "success",
     },

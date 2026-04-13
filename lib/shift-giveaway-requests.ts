@@ -14,6 +14,8 @@ export type ShiftExchangeRole =
   | "floor"
   | "chip_runner"
   | "cage"
+  | "food_and_beverage"
+  | "security"
   | "unknown";
 export type ShiftRequestApprovalRoute = "automatic" | "floor_admin" | "admin_only";
 
@@ -87,6 +89,18 @@ export function normalizeShiftExchangeRole(dept?: string | null): ShiftExchangeR
     return "cage";
   }
 
+  if (
+    normalized.includes("food") ||
+    normalized.includes("beverage") ||
+    normalized.includes("f&b")
+  ) {
+    return "food_and_beverage";
+  }
+
+  if (normalized.includes("security")) {
+    return "security";
+  }
+
   if (normalized.includes("dealer")) {
     return "dealer";
   }
@@ -148,6 +162,10 @@ export function canRolesSwitch(
       return targetRole === "chip_runner";
     case "cage":
       return targetRole === "cage";
+    case "food_and_beverage":
+      return targetRole === "food_and_beverage";
+    case "security":
+      return targetRole === "security";
     default:
       return false;
   }
@@ -161,7 +179,12 @@ export function getShiftRequestApprovalRoute(args: {
   const { requestKind, requesterRole, targetRole } = args;
 
   if (requestKind === "switch") {
-    if (requesterRole === "chip_runner" || requesterRole === "cage") {
+    if (
+      requesterRole === "chip_runner" ||
+      requesterRole === "cage" ||
+      requesterRole === "food_and_beverage" ||
+      requesterRole === "security"
+    ) {
       return "admin_only" as const;
     }
 
@@ -173,7 +196,12 @@ export function getShiftRequestApprovalRoute(args: {
     }
   }
 
-  if (requesterRole === "chip_runner" || requesterRole === "cage") {
+  if (
+    requesterRole === "chip_runner" ||
+    requesterRole === "cage" ||
+    requesterRole === "food_and_beverage" ||
+    requesterRole === "security"
+  ) {
     return "admin_only" as const;
   }
 
